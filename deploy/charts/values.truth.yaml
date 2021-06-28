@@ -1,0 +1,326 @@
+---
+DictOfStrings: &DictOfStrings
+  _type: object
+  _patternProperties:
+    ".{1,}": { "type": "string" }
+
+Affinity: &Affinity
+  _type: object
+
+Image: &Image
+  repository: { _type: string }
+
+  # Override the image tag to deploy by setting this variable.
+  # If no value is set, the chart's appVersion will be used.
+  tag: { _type: string }
+
+  # Setting a digest will override any tag
+  digest: { _type: string }
+  
+  pullPolicy: { _type: string, _default: IfNotPresent }
+
+ExtraArgs: &ExtraArgs
+  _type: array
+  _items: { _type: string }
+
+ExtraEnv: &ExtraEnv
+  _type: array
+  _items:
+    name: { _type: string }
+    value: { _type: string }
+
+Resources: &Resources
+  requests:
+    $optional: true
+    cpu: { _type: string }
+    memory: { _type: string }
+
+# Pod Security Context to be set on the webhook component Pod
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+PodSecurityContext: &PodSecurityContext
+  runAsNonRoot: { _type: boolean }
+
+# Container Security Context to be set on the webhook component container
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+ContainerSecurityContext: &ContainerSecurityContext
+  capabilities: {}
+  readOnlyRootFilesystem: { _type: boolean }
+  runAsNonRoot: { _type: boolean }
+
+# Reference to one or more secrets to be used when pulling images
+# ref: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
+PullSecrets: &PullSecrets
+  _type: array
+  _items: { _type: string }
+
+Strategy: &Strategy
+  type: { _type: string }
+  rollingUpdate:
+    $optional: true
+    maxSurge: { _type: integer }
+    maxUnavailable: { _type: integer }
+
+ServiceAccount: &ServiceAccount
+  # Specifies whether a service account should be created
+  create: { _type: boolean, _default: true }
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: { _type: string }
+  # Optional additional annotations to add to the controller's ServiceAccount
+  annotations: *DictOfStrings
+  # Automount API credentials for a Service Account.
+  automountServiceAccountToken: { _type: boolean, _default: true }
+
+# Liveness and readiness probe values
+# Ref: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#container-probes
+Probe: &Probe
+  failureThreshold: { _type: integer }
+  initialDelaySeconds: { _type: integer }
+  periodSeconds: { _type: integer }
+  successThreshold: { _type: integer }
+  timeoutSeconds: { _type: integer }
+
+Rbac: &Rbac
+  create: { _type: boolean }
+
+LeaderElection: &LeaderElection
+  # Override the namespace used to store the ConfigMap for leader election
+  namespace: { _type: string, _default: "kube-system" }
+
+  # The duration that non-leader candidates will wait after observing a
+  # leadership renewal until attempting to acquire leadership of a led but
+  # unrenewed leader slot. This is effectively the maximum duration that a
+  # leader can be stopped before it is replaced by another candidate.
+  leaseDuration: { _type: string, $optional: true }
+
+  # The interval between attempts by the acting master to renew a leadership
+  # slot before it stops leading. This must be less than or equal to the
+  # lease duration.
+  renewDeadline: { _type: string, $optional: true }
+
+  # The duration the clients should wait between attempting acquisition and
+  # renewal of a leadership.
+  retryPeriod: { _type: string, $optional: true }
+
+PodSecurityPolicy: &PodSecurityPolicy
+  enabled: { _type: boolean }
+  useAppArmor: { _type: boolean }
+
+Servicemonitor: &Servicemonitor
+  enabled: { _type: boolean }
+  prometheusInstance: { _type: string }
+  targetPort: { _type: integer }
+  path: { _type: string }
+  interval: { _type: string }
+  scrapeTimeout: { _type: string }
+  labels: *DictOfStrings
+  
+Prometheus: &Prometheus
+  enabled: { _type: boolean }
+  servicemonitor: *Servicemonitor
+
+Global: &Global
+  imagePullSecrets: *PullSecrets
+  
+  # Optional priority class to be used for the cert-manager pods
+  priorityClassName: { _type: string }
+  rbac: *Rbac
+
+  podSecurityPolicy: *PodSecurityPolicy
+
+  # Set the verbosity of cert-manager. Range of 0 - 6 with 6 being the most verbose.
+  logLevel: { _type: integer }
+
+  leaderElection: *LeaderElection
+
+Webhook: &Webhook
+  replicaCount: { _type: integer, _default: 1 }
+  timeoutSeconds: { _type: integer, _default: 10 }
+
+  strategy: *Strategy
+
+  securityContext: *PodSecurityContext
+  containerSecurityContext: *ContainerSecurityContext
+
+  deploymentAnnotations: *DictOfStrings
+  podAnnotations: *DictOfStrings
+  mutatingWebhookConfigurationAnnotations: *DictOfStrings
+  validatingWebhookConfigurationAnnotations: *DictOfStrings
+
+  extraArgs: *ExtraArgs
+  resources: *Resources
+
+  livenessProbe:
+    <<: *Probe
+    failureThreshold: { _type: integer, _default: 3 }
+    initialDelaySeconds: { _type: integer, _default: 60 }
+    periodSeconds: { _type: integer, _default: 10 }
+    successThreshold: { _type: integer, _default: 1 }
+    timeoutSeconds: { _type: integer, _default: 1 }
+
+  readinessProbe:
+    <<: *Probe
+    failureThreshold: { _type: integer, _default: 3 }
+    initialDelaySeconds: { _type: integer, _default: 5 }
+    periodSeconds: { _type: integer, _default: 5 }
+    successThreshold: { _type: integer, _default: 1 }
+    timeoutSeconds: { _type: integer, _default: 1 }
+
+  nodeSelector: {}
+  affinity: {}
+
+  tolerations:
+    _type: array
+    items: {}
+
+  # Optional additional labels to add to the Webhook Pods
+  podLabels: {}
+
+  image:
+    <<: *Image
+    repository: { _type: string, _default: quay.io/jetstack/cert-manager-webhook }
+
+  serviceAccount: *ServiceAccount
+
+  # The port that the webhook should listen on for requests.
+  # In GKE private clusters, by default kubernetes apiservers are allowed to
+  # talk to the cluster nodes only on 443 and 10250. so configuring
+  # securePort: 10250, will work out of the box without needing to add firewall
+  # rules or requiring NET_BIND_SERVICE capabilities to bind port numbers <1000
+  securePort: { _type: integer, _default: 10250 }
+
+  # Specifies if the webhook should be started in hostNetwork mode.
+  #
+  # Required for use in some managed kubernetes clusters (such as AWS EKS) with custom
+  # CNI (such as calico), because control-plane managed by AWS cannot communicate
+  # with pods' IP CIDR and admission webhooks are not working
+  #
+  # Since the default port for the webhook conflicts with kubelet on the host
+  # network, `webhook.securePort` should be changed to an available port if
+  # running in hostNetwork mode.
+  hostNetwork: { _type: boolean, _default: false }
+
+  # Specifies how the service should be handled. Useful if you want to expose the
+  # webhook to outside of the cluster. In some cases, the control plane cannot
+  # reach internal services.
+  service_type: { _type: string, _default: ClusterIP }
+  loadBalancerIP: {}
+
+  # Overrides the mutating webhook and validating webhook so they reach the webhook
+  # service using the `url` field instead of a service.
+  url:
+    host:
+      $optional: true
+      _type: string
+
+Cainjector: &Cainjector
+  enabled: { _type: boolean, _default: true }
+  replicaCount: { _type: integer, _default: 1 }
+
+  strategy: *Strategy
+
+  securityContext: *PodSecurityContext
+  containerSecurityContext: *ContainerSecurityContext
+
+  # Optional additional annotations to add to the cainjector Deployment
+  deploymentAnnotations: *DictOfStrings
+
+  # Optional additional annotations to add to the cainjector Pods
+  podAnnotations: *DictOfStrings
+
+  extraArgs: *ExtraArgs
+
+  resources: *Resources
+
+  nodeSelector: {}
+
+  affinity: {}
+
+  tolerations: { _type: array, items: {} }
+
+  # Optional additional labels to add to the CA Injector Pods
+  podLabels: *Affinity
+
+  image: *Image
+  
+  serviceAccount: *ServiceAccount
+
+$properties:
+  # Global configuration
+  global: *Global
+
+  installCRDs: { _type: boolean, _default: false }
+
+  replicaCount: { _type: integer, _default: 1 }
+
+  strategy: *Strategy
+  
+  # Comma separated list of feature gates that should be enabled on the
+  # controller pod.
+  featureGates: { _type: string }
+
+  image:
+    <<: *Image
+    repository: { _type: string, _default: quay.io/jetstack/cert-manager-controller }
+
+  # Override the namespace used to store DNS provider credentials etc. for ClusterIssuer
+  # resources. By default, the same namespace as cert-manager is deployed within is
+  # used. This namespace will not be automatically created by the Helm chart.
+  clusterResourceNamespace: { _type: string }
+
+  serviceAccount: *ServiceAccount
+
+  # Use this flag to set a namespace that cert-manager will use to store
+  # supporting resources required for each ClusterIssuer (default is kube-system)
+  # - --cluster-resource-namespace=kube-system
+  # When this flag is enabled, secrets will be automatically removed when the certificate resource is deleted
+  # - --enable-certificate-owner-ref=true
+  # Use this flag to enabled or disable arbitrary controllers, for example, disable the CertificiateRequests approver
+  # - --controllers=*,-certificaterequests-approver
+  extraArgs: *ExtraArgs
+
+  extraEnv: *ExtraEnv
+
+  resources: *Resources
+
+  securityContext: *PodSecurityContext
+  containerSecurityContext: *ContainerSecurityContext
+
+  volumes: {}
+
+  volumeMounts: {}
+  
+  # Optional additional annotations to add to the controller Deployment
+  deploymentAnnotations: *DictOfStrings
+
+  # Optional additional annotations to add to the controller Pods
+  podAnnotations: *DictOfStrings
+
+  podLabels: *DictOfStrings
+
+  # Optional additional labels to add to the controller Service
+  serviceLabels: *DictOfStrings
+
+  # Optional DNS settings, useful if you have a public and private DNS zone for
+  # the same domain on Route 53. What follows is an example of ensuring
+  # cert-manager can access an ingress or DNS TXT records at all times.
+  # NOTE: This requires Kubernetes 1.10 or `CustomPodDNS` feature gate enabled for
+  # the cluster to work.
+  podDnsPolicy: {}
+  podDnsConfig: {}
+
+  nodeSelector: {}
+
+  ingressShim: {}
+
+  prometheus: *Prometheus
+
+  affinity: {}
+
+  tolerations: {}
+
+  # Webhook configuration
+  webhook: *Webhook
+
+  # CAInjector configuration
+  cainjector: *Cainjector
