@@ -261,6 +261,19 @@ sh_test(
     ],
 )
 
+# Scrape release notes script
+
+sh_test(
+    name = "scrape-release-notes",
+    srcs = ["scrape-release-notes.sh"],
+    args = [
+        "$(location %s)" % JQ,
+    ],
+    data = [
+        JQ,
+    ],
+)
+
 filegroup(
     name = "package-srcs",
     srcs = glob(["**"]),
