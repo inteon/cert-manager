@@ -46,3 +46,36 @@ filegroup(
     tags = ["automanaged"],
     visibility = ["//visibility:public"],
 )
+
+go_test(
+    name = "ctl_test",
+    srcs = [
+        "ctl_convert_test.go",
+        "ctl_create_cr_test.go",
+        "ctl_renew_test.go",
+        "ctl_status_certificate_test.go",
+    ],
+    data = glob(["testdata/**"]),
+    deps = [
+        "//cmd/ctl/pkg/convert",
+        "//cmd/ctl/pkg/create/certificaterequest",
+        "//cmd/ctl/pkg/renew",
+        "//cmd/ctl/pkg/status/certificate",
+        "//pkg/api/util",
+        "//pkg/apis/acme/v1:acme",
+        "//pkg/apis/certmanager/v1:certmanager",
+        "//pkg/apis/meta/v1:meta",
+        "//pkg/client/clientset/versioned",
+        "//pkg/ctl",
+        "//pkg/util/pki",
+        "//test/integration/framework",
+        "//test/unit/gen",
+        "@com_github_sergi_go_diff//diffmatchpatch",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/util/wait",
+        "@io_k8s_cli_runtime//pkg/genericclioptions",
+        "@io_k8s_client_go//kubernetes",
+        "@io_k8s_client_go//tools/reference",
+    ],
+)

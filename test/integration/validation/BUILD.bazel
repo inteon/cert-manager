@@ -29,3 +29,19 @@ go_test(
         "@io_k8s_sigs_controller_runtime//pkg/client:go_default_library",
     ],
 )
+
+go_test(
+    name = "validation_test",
+    srcs = ["certificaterequest_test.go"],
+    deps = [
+        "//pkg/api",
+        "//pkg/apis/certmanager/v1:certmanager",
+        "//pkg/apis/meta/v1:meta",
+        "//pkg/util/pki",
+        "//test/integration/framework",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/runtime",
+        "@io_k8s_apimachinery//pkg/runtime/schema",
+        "@io_k8s_sigs_controller_runtime//pkg/client",
+    ],
+)

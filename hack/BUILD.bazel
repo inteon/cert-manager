@@ -261,6 +261,13 @@ sh_test(
     ],
 )
 
+# Scrape release manifests
+
+sh_binary(
+    name = "scrape-release-manifests",
+    srcs = ["scrape-release-manifests.sh"],
+)
+
 filegroup(
     name = "package-srcs",
     srcs = glob(["**"]),

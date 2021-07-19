@@ -45,3 +45,19 @@ filegroup(
     tags = ["automanaged"],
     visibility = ["//visibility:public"],
 )
+
+go_test(
+    name = "validation_test",
+    srcs = ["registry_test.go"],
+    deps = [
+        ":validation",
+        "//pkg/apis/certmanager/v1:certmanager",
+        "//pkg/internal/apis/certmanager",
+        "//pkg/webhook",
+        "@io_k8s_api//admission/v1:admission",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/runtime",
+        "@io_k8s_apimachinery//pkg/util/runtime",
+        "@io_k8s_apimachinery//pkg/util/validation/field",
+    ],
+)

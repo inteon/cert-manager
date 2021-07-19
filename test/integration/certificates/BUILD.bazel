@@ -45,3 +45,35 @@ filegroup(
     tags = ["automanaged"],
     visibility = ["//visibility:public"],
 )
+
+go_test(
+    name = "certificates_test",
+    srcs = [
+        "issuing_controller_test.go",
+        "metrics_controller_test.go",
+        "revisionmanager_controller_test.go",
+        "trigger_controller_test.go",
+    ],
+    deps = [
+        "//pkg/api/util",
+        "//pkg/apis/certmanager/v1:certmanager",
+        "//pkg/apis/meta/v1:meta",
+        "//pkg/client/clientset/versioned",
+        "//pkg/controller",
+        "//pkg/controller/certificates/issuing",
+        "//pkg/controller/certificates/metrics",
+        "//pkg/controller/certificates/revisionmanager",
+        "//pkg/controller/certificates/trigger",
+        "//pkg/controller/certificates/trigger/policies",
+        "//pkg/logs",
+        "//pkg/metrics",
+        "//pkg/util/pki",
+        "//test/integration/framework",
+        "//test/unit/gen",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/util/wait",
+        "@io_k8s_utils//clock",
+        "@io_k8s_utils//clock/testing",
+    ],
+)

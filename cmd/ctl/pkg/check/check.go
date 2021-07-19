@@ -24,11 +24,13 @@ import (
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 
 	"github.com/jetstack/cert-manager/cmd/ctl/pkg/check/api"
+	"github.com/jetstack/cert-manager/cmd/ctl/pkg/check/version"
 )
 
 func NewCmdCheck(ctx context.Context, ioStreams genericclioptions.IOStreams, factory cmdutil.Factory) *cobra.Command {
 	cmds := NewCmdCreateBare()
 	cmds.AddCommand(api.NewCmdCheckApi(ctx, ioStreams, factory))
+	cmds.AddCommand(version.NewCmdCheckVersion(ctx, ioStreams, factory))
 
 	return cmds
 }

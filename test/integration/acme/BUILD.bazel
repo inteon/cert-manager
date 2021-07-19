@@ -35,3 +35,25 @@ filegroup(
     tags = ["automanaged"],
     visibility = ["//visibility:public"],
 )
+
+go_test(
+    name = "acme_test",
+    srcs = ["orders_controller_test.go"],
+    deps = [
+        "//pkg/acme/accounts/test",
+        "//pkg/acme/client",
+        "//pkg/apis/acme/v1:acme",
+        "//pkg/apis/meta/v1:meta",
+        "//pkg/controller",
+        "//pkg/controller/acmeorders",
+        "//pkg/logs",
+        "//pkg/metrics",
+        "//test/integration/framework",
+        "//test/unit/gen",
+        "@io_k8s_api//core/v1:core",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/util/wait",
+        "@io_k8s_utils//clock",
+        "@org_golang_x_crypto//acme",
+    ],
+)

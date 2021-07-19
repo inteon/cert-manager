@@ -43,3 +43,18 @@ go_test(
         "@io_k8s_apimachinery//pkg/runtime:go_default_library",
     ],
 )
+
+go_test(
+    name = "mutation_test",
+    srcs = ["registry_test.go"],
+    deps = [
+        ":mutation",
+        "//pkg/apis/certmanager",
+        "//pkg/internal/apis/certmanager",
+        "//pkg/webhook",
+        "//test/unit/gen",
+        "@io_k8s_api//admission/v1:admission",
+        "@io_k8s_apimachinery//pkg/apis/meta/v1:meta",
+        "@io_k8s_apimachinery//pkg/runtime",
+    ],
+)
