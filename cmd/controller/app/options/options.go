@@ -40,6 +40,7 @@ import (
 	crselfsignedcontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/selfsigned"
 	crvaultcontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/vault"
 	crvenaficontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/venafi"
+	certificatesduplicatesecrets "github.com/cert-manager/cert-manager/pkg/controller/certificates/duplicatesecrets"
 	"github.com/cert-manager/cert-manager/pkg/controller/certificates/issuing"
 	"github.com/cert-manager/cert-manager/pkg/controller/certificates/keymanager"
 	certificatesmetricscontroller "github.com/cert-manager/cert-manager/pkg/controller/certificates/metrics"
@@ -183,6 +184,7 @@ var (
 		issuerscontroller.ControllerName,
 		clusterissuerscontroller.ControllerName,
 		certificatesmetricscontroller.ControllerName,
+		certificatesduplicatesecrets.ControllerName,
 		shimingresscontroller.ControllerName,
 		shimgatewaycontroller.ControllerName,
 		orderscontroller.ControllerName,
@@ -206,6 +208,7 @@ var (
 		issuerscontroller.ControllerName,
 		clusterissuerscontroller.ControllerName,
 		certificatesmetricscontroller.ControllerName,
+		certificatesduplicatesecrets.ControllerName,
 		shimingresscontroller.ControllerName,
 		orderscontroller.ControllerName,
 		challengescontroller.ControllerName,
