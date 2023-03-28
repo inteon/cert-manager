@@ -24,9 +24,8 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/selection"
 	"k8s.io/apimachinery/pkg/types"
 	kubeinformers "k8s.io/client-go/informers"
@@ -60,7 +59,7 @@ func init() {
 	}
 	isCertManageSecretLabelSelector = labels.NewSelector().Add(*r)
 
-	r, err = labels.NewRequirement(cmapi.PartOfCertManagerControllerLabelKey, selection.DoesNotExist, make([]string, 0))
+	r, err = labels.NewRequirement(cmapi.PartOfCertManagerControllerLabelKey, selection.DoesNotExist, nil)
 	if err != nil {
 		panic(fmt.Errorf("internal error: failed to build label selector to filter non-cert-manager secrets: %w", err))
 	}
@@ -77,7 +76,7 @@ type filteredSecretsFactory struct {
 
 func NewFilteredSecretsKubeInformerFactory(ctx context.Context, typedClient kubernetes.Interface, metadataClient metadata.Interface, resync time.Duration, namespace string) KubeInformerFactory {
 	return &filteredSecretsFactory{
-		typedInformerFactory: kubeinformers.NewSharedInformerFactory(typedClient, resync),
+		typedInformerFactory: kubeinformers.NewSharedInformerFactoryWithOptions(typedClient, resync, kubeinformers.WithNamespace(namespace)),
 		metadataInformerFactory: metadatainformer.NewFilteredSharedInformerFactory(metadataClient, resync, namespace, func(listOptions *metav1.ListOptions) {
 			listOptions.LabelSelector = isNotCertManagerSecretLabelSelector.String()
 
@@ -251,15 +250,16 @@ type secretNamespaceLister struct {
 func (snl *secretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 	log := logf.FromContext(snl.ctx)
 	log = log.WithValues("secret", name, "namespace", snl.namespace)
+
 	var secretFoundInTypedCache, secretFoundInMetadataCache bool
-	secret, err := snl.typedLister.Secrets(snl.namespace).Get(name)
-	if err == nil {
+	secret, typedCacheErr := snl.typedLister.Secrets(snl.namespace).Get(name)
+	if typedCacheErr == nil {
 		secretFoundInTypedCache = true
 	}
 
-	if err != nil && !apierrors.IsNotFound(err) {
-		log.Error(err, "error getting secret from typed cache")
-		return nil, fmt.Errorf("error retrieving secret from the typed cache: %w", err)
+	if typedCacheErr != nil && !apierrors.IsNotFound(typedCacheErr) {
+		log.Error(typedCacheErr, "error getting secret from typed cache")
+		return nil, fmt.Errorf("error retrieving secret from the typed cache: %w", typedCacheErr)
 	}
 	_, partialMetadataGetErr := snl.partialMetadataLister.Namespace(snl.namespace).Get(name)
 	if partialMetadataGetErr == nil {
@@ -267,11 +267,15 @@ func (snl *secretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 	}
 
 	if partialMetadataGetErr != nil && !apierrors.IsNotFound(partialMetadataGetErr) {
-		return nil, fmt.Errorf("error retrieving object from partial object metadata cache: %w", err)
+		return nil, fmt.Errorf("error retrieving object from partial object metadata cache: %w", partialMetadataGetErr)
 	}
 
-	if secretFoundInMetadataCache && secretFoundInTypedCache {
-		log.Info(fmt.Sprintf("warning: possible internal error: stale cache: secret found both in typed cache and in partial cache: %s", pleaseOpenIssue), "secret name")
+	if secretFoundInMetadataCache {
+		// if secret is found in both caches log an error and return the version from kube apiserver
+		if secretFoundInTypedCache {
+			key := types.NamespacedName{Namespace: snl.namespace, Name: name}
+			log.Info(fmt.Sprintf("warning: possible internal error: stale cache: secret found both in typed cache and in partial cache: %s", pleaseOpenIssue), "secret", key)
+		}
 		return snl.typedClient.Secrets(snl.namespace).Get(snl.ctx, name, metav1.GetOptions{})
 	}
 
@@ -279,24 +283,22 @@ func (snl *secretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 		return secret, nil
 	}
 
-	if secretFoundInMetadataCache {
-		return snl.typedClient.Secrets(snl.namespace).Get(snl.ctx, name, metav1.GetOptions{})
-	}
-
-	return nil, partialMetadataGetErr
+	// If we get here it is because secret was found neither in typed cache
+	// nor partial metadata cache
+	return nil, apierrors.NewNotFound(schema.GroupResource{Group: corev1.GroupName, Resource: corev1.ResourceSecrets.String()}, name)
 }
 
 func (snl *secretNamespaceLister) List(selector labels.Selector) ([]*corev1.Secret, error) {
 	log := logf.FromContext(snl.ctx)
 	log = log.WithValues("secrets namespace", snl.namespace, "secrets selector", selector.String())
-	matchingSecretsMap := make(map[string]*corev1.Secret)
+	matchingSecretsMap := make(map[types.NamespacedName]*corev1.Secret)
 	typedSecrets, err := snl.typedLister.List(selector)
 	if err != nil {
 		log.Error(err, "error listing Secrets from typed cache")
 		return nil, err
 	}
 	for _, secret := range typedSecrets {
-		key := types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}.String()
+		key := types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
 		matchingSecretsMap[key] = secret
 	}
 	metadataSecrets, err := snl.partialMetadataLister.List(selector)
@@ -304,21 +306,20 @@ func (snl *secretNamespaceLister) List(selector labels.Selector) ([]*corev1.Secr
 		log.Error(err, "error listing Secrets from metadata only cache")
 		return nil, err
 	}
+
+	// In practice this section will likely never be used. The only place
+	// where we LIST Secrets is in keymanager controller where we list
+	// temporary Certificate Secrets which are all labelled.
+	// It is unlikely that we will every list unlabelled Secrets.
 	for _, secretMeta := range metadataSecrets {
-		unstructuredObj, err := objectToUnstructured(secretMeta)
-		if err != nil {
-			log.Error(err, "error converting runtime object to unstructured")
-			return nil, err
-		}
-		name := unstructuredObj.GetName()
-		key := types.NamespacedName{Namespace: snl.namespace, Name: name}.String()
+		key := types.NamespacedName{Namespace: secretMeta.Namespace, Name: secretMeta.Name}
 		if _, ok := matchingSecretsMap[key]; ok {
-			log.Info(fmt.Sprintf("warning: possible internal error: stale cache: secret found both in typed cache and in partial cache: %s", pleaseOpenIssue), "secret name", name)
+			log.Info(fmt.Sprintf("warning: possible internal error: stale cache: secret found both in typed cache and in partial cache: %s", pleaseOpenIssue), "secret name", secretMeta.Name)
 			// in case of duplicates, return the version from kube apiserver
 		}
-		secret, err := snl.typedClient.Secrets(snl.namespace).Get(snl.ctx, name, metav1.GetOptions{})
+		secret, err := snl.typedClient.Secrets(snl.namespace).Get(snl.ctx, secretMeta.Name, metav1.GetOptions{})
 		if err != nil {
-			log.Error(err, "error retrieving secret from kube apiserver", "secret name", name)
+			log.Error(err, "error retrieving secret from kube apiserver", "secret name", secretMeta.Name)
 			return nil, err
 		}
 		matchingSecretsMap[key] = secret
@@ -329,15 +330,4 @@ func (snl *secretNamespaceLister) List(selector labels.Selector) ([]*corev1.Secr
 		matchingSecrets = append(matchingSecrets, val)
 	}
 	return matchingSecrets, nil
-}
-
-func objectToUnstructured(obj runtime.Object) (*unstructured.Unstructured, error) {
-	unstructuredContent, err := runtime.DefaultUnstructuredConverter.ToUnstructured(obj)
-	if err != nil {
-		return nil, err
-	}
-	u := &unstructured.Unstructured{}
-	u.SetUnstructuredContent(unstructuredContent)
-	u.SetGroupVersionKind(obj.GetObjectKind().GroupVersionKind())
-	return u, nil
 }
