@@ -86,7 +86,7 @@ func (s *Solver) Present(ctx context.Context, issuer v1.GenericIssuer, ch *cmacm
 	}
 	if err == nil {
 		log.V(logf.InfoLevel).Info("presenting DNS01 challenge for domain")
-		return webhookSolver.Present(req)
+		return webhookSolver.Present(ctx, req)
 	}
 
 	slv, providerConfig, err := s.solverForChallenge(ctx, issuer, ch)
@@ -144,7 +144,7 @@ func (s *Solver) CleanUp(ctx context.Context, issuer v1.GenericIssuer, ch *cmacm
 	}
 	if err == nil {
 		log.V(logf.DebugLevel).Info("cleaning up DNS01 challenge")
-		return webhookSolver.CleanUp(req)
+		return webhookSolver.CleanUp(ctx, req)
 	}
 
 	slv, providerConfig, err := s.solverForChallenge(ctx, issuer, ch)
@@ -191,17 +191,17 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 	switch {
 	case providerConfig.Akamai != nil:
 		dbg.Info("preparing to create Akamai provider")
-		clientToken, err := s.loadSecretData(&providerConfig.Akamai.ClientToken, resourceNamespace)
+		clientToken, err := s.loadSecretData(ctx, &providerConfig.Akamai.ClientToken, resourceNamespace)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "error getting akamai client token")
 		}
 
-		clientSecret, err := s.loadSecretData(&providerConfig.Akamai.ClientSecret, resourceNamespace)
+		clientSecret, err := s.loadSecretData(ctx, &providerConfig.Akamai.ClientSecret, resourceNamespace)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "error getting akamai client secret")
 		}
 
-		accessToken, err := s.loadSecretData(&providerConfig.Akamai.AccessToken, resourceNamespace)
+		accessToken, err := s.loadSecretData(ctx, &providerConfig.Akamai.AccessToken, resourceNamespace)
 		if err != nil {
 			return nil, nil, errors.Wrap(err, "error getting akamai access token")
 		}
@@ -223,7 +223,7 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 		// that secret.  If it is nil we will attempt to instantiate the
 		// provider using ambient credentials (if enabled).
 		if providerConfig.CloudDNS.ServiceAccount != nil {
-			saSecret, err := s.secretLister.Secrets(resourceNamespace).Get(providerConfig.CloudDNS.ServiceAccount.Name)
+			saSecret, err := s.secretLister.Secrets(resourceNamespace).Get(ctx, providerConfig.CloudDNS.ServiceAccount.Name)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error getting clouddns service account: %s", err)
 			}
@@ -255,7 +255,7 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 			saSecretKey = providerConfig.Cloudflare.APIToken.Key
 		}
 
-		saSecret, err := s.secretLister.Secrets(resourceNamespace).Get(saSecretName)
+		saSecret, err := s.secretLister.Secrets(resourceNamespace).Get(ctx, saSecretName)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting cloudflare secret: %s", err)
 		}
@@ -279,7 +279,7 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 		}
 	case providerConfig.DigitalOcean != nil:
 		dbg.Info("preparing to create DigitalOcean provider")
-		apiTokenSecret, err := s.secretLister.Secrets(resourceNamespace).Get(providerConfig.DigitalOcean.Token.Name)
+		apiTokenSecret, err := s.secretLister.Secrets(resourceNamespace).Get(ctx, providerConfig.DigitalOcean.Token.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting digitalocean token: %s", err)
 		}
@@ -315,7 +315,7 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 				return nil, nil, fmt.Errorf("route53 accessKeyIDSecretRef requires a name field to be specified")
 			}
 
-			secretAccessKeyIDSecret, err := s.secretLister.Secrets(resourceNamespace).Get(providerConfig.Route53.SecretAccessKeyID.Name)
+			secretAccessKeyIDSecret, err := s.secretLister.Secrets(resourceNamespace).Get(ctx, providerConfig.Route53.SecretAccessKeyID.Name)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error getting route53 secret access key id: %s", err)
 			}
@@ -332,7 +332,7 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 
 		secretAccessKey := ""
 		if providerConfig.Route53.SecretAccessKey.Name != "" {
-			secretAccessKeySecret, err := s.secretLister.Secrets(resourceNamespace).Get(providerConfig.Route53.SecretAccessKey.Name)
+			secretAccessKeySecret, err := s.secretLister.Secrets(resourceNamespace).Get(ctx, providerConfig.Route53.SecretAccessKey.Name)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error getting route53 secret access key: %s", err)
 			}
@@ -363,7 +363,7 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 		// if ClientID is empty, then we try to use MSI (azure metadata API for credentials)
 		// if ClientID is empty we don't even try to get the ClientSecret because it would not be used
 		if providerConfig.AzureDNS.ClientID != "" {
-			clientSecret, err := s.secretLister.Secrets(resourceNamespace).Get(providerConfig.AzureDNS.ClientSecret.Name)
+			clientSecret, err := s.secretLister.Secrets(resourceNamespace).Get(ctx, providerConfig.AzureDNS.ClientSecret.Name)
 			if err != nil {
 				return nil, nil, fmt.Errorf("error getting azuredns client secret: %s", err)
 			}
@@ -391,7 +391,7 @@ func (s *Solver) solverForChallenge(ctx context.Context, issuer v1.GenericIssuer
 		}
 	case providerConfig.AcmeDNS != nil:
 		dbg.Info("preparing to create ACMEDNS provider")
-		accountSecret, err := s.secretLister.Secrets(resourceNamespace).Get(providerConfig.AcmeDNS.AccountSecret.Name)
+		accountSecret, err := s.secretLister.Secrets(resourceNamespace).Get(ctx, providerConfig.AcmeDNS.AccountSecret.Name)
 		if err != nil {
 			return nil, nil, fmt.Errorf("error getting acmedns accounts secret: %s", err)
 		}
@@ -524,8 +524,8 @@ func NewSolver(ctx *controller.Context) (*Solver, error) {
 	}, nil
 }
 
-func (s *Solver) loadSecretData(selector *cmmeta.SecretKeySelector, ns string) ([]byte, error) {
-	secret, err := s.secretLister.Secrets(ns).Get(selector.Name)
+func (s *Solver) loadSecretData(ctx context.Context, selector *cmmeta.SecretKeySelector, ns string) ([]byte, error) {
+	secret, err := s.secretLister.Secrets(ns).Get(ctx, selector.Name)
 	if err != nil {
 		return nil, errors.Wrapf(err, "failed to load secret %q", ns+"/"+selector.Name)
 	}

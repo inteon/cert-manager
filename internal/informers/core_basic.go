@@ -17,9 +17,11 @@ limitations under the License.
 package informers
 
 import (
+	"context"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	kubeinformers "k8s.io/client-go/informers"
 	certificatesv1 "k8s.io/client-go/informers/certificates/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
@@ -102,8 +104,34 @@ func (bsi *baseSecretInformer) Informer() Informer {
 	return bsi.informer
 }
 
+type baseSecretLister struct {
+	lister corev1listers.SecretLister
+}
+
+func (bsl baseSecretLister) Secrets(namespace string) SecretNamespaceLister {
+	return baseSecretNamespaceLister{
+		namespace:        namespace,
+		baseSecretLister: bsl,
+	}
+}
+
+type baseSecretNamespaceLister struct {
+	namespace string
+	baseSecretLister
+}
+
+func (bsnl baseSecretNamespaceLister) Get(_ context.Context, name string) (*corev1.Secret, error) {
+	return bsnl.lister.Secrets(bsnl.namespace).Get(name)
+}
+
+func (bsnl baseSecretNamespaceLister) List(_ context.Context, selector labels.Selector) ([]*corev1.Secret, error) {
+	return bsnl.lister.Secrets(bsnl.namespace).List(selector)
+}
+
 func (bsi *baseSecretInformer) Lister() SecretLister {
-	return corev1listers.NewSecretLister(bsi.f.InformerFor(&corev1.Secret{}, bsi.new).GetIndexer())
+	return baseSecretLister{
+		lister: corev1listers.NewSecretLister(bsi.f.InformerFor(&corev1.Secret{}, bsi.new).GetIndexer()),
+	}
 }
 
 func (bsi *baseSecretInformer) new(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {

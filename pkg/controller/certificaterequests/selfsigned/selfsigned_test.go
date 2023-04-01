@@ -28,10 +28,10 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
-	clientcorev1 "k8s.io/client-go/listers/core/v1"
 	coretesting "k8s.io/client-go/testing"
 	fakeclock "k8s.io/utils/clock/testing"
 
+	internalinformers "github.com/cert-manager/cert-manager/internal/informers"
 	apiutil "github.com/cert-manager/cert-manager/pkg/api/util"
 	"github.com/cert-manager/cert-manager/pkg/apis/certmanager"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -403,9 +403,9 @@ func TestSign(t *testing.T) {
 				},
 			},
 			fakeLister: &listersfake.FakeSecretLister{
-				SecretsFn: func(namespace string) clientcorev1.SecretNamespaceLister {
+				SecretsFn: func(namespace string) internalinformers.SecretNamespaceLister {
 					return &listersfake.FakeSecretNamespaceLister{
-						GetFn: func(name string) (ret *corev1.Secret, err error) {
+						GetFn: func(context.Context, string) (ret *corev1.Secret, err error) {
 							return nil, errors.New("this is a network error")
 						},
 					}

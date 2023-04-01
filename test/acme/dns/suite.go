@@ -17,6 +17,7 @@ limitations under the License.
 package dns
 
 import (
+	"context"
 	"testing"
 
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -36,11 +37,11 @@ func (f *fixture) TestBasicPresentRecord(t *testing.T) {
 
 	t.Logf("Calling Present with ChallengeRequest: %#v", ch)
 	// present the record
-	if err := f.testSolver.Present(ch); err != nil {
+	if err := f.testSolver.Present(context.Background(), ch); err != nil {
 		t.Errorf("expected Present to not error, but got: %v", err)
 		return
 	}
-	defer f.testSolver.CleanUp(ch)
+	defer f.testSolver.CleanUp(context.Background(), ch)
 
 	// wait until the record has propagated
 	if err := wait.PollUntil(f.getPollInterval(),
@@ -51,7 +52,7 @@ func (f *fixture) TestBasicPresentRecord(t *testing.T) {
 	}
 
 	// clean up the presented record
-	if err := f.testSolver.CleanUp(ch); err != nil {
+	if err := f.testSolver.CleanUp(context.Background(), ch); err != nil {
 		t.Errorf("expected CleanUp to not error, but got: %v", err)
 	}
 
@@ -80,18 +81,18 @@ func (f *fixture) TestExtendedDeletingOneRecordRetainsOthers(t *testing.T) {
 	ch2.Key = "anothertestingkey"
 
 	// present the first record
-	if err := f.testSolver.Present(ch); err != nil {
+	if err := f.testSolver.Present(context.Background(), ch); err != nil {
 		t.Errorf("expected Present to not error, but got: %v", err)
 		return
 	}
-	defer f.testSolver.CleanUp(ch)
+	defer f.testSolver.CleanUp(context.Background(), ch)
 
 	// present the second record
-	if err := f.testSolver.Present(ch2); err != nil {
+	if err := f.testSolver.Present(context.Background(), ch2); err != nil {
 		t.Errorf("expected Present to not error, but got: %v", err)
 		return
 	}
-	defer f.testSolver.CleanUp(ch2)
+	defer f.testSolver.CleanUp(context.Background(), ch2)
 
 	// wait until all records have propagated
 	if err := wait.PollUntil(f.getPollInterval(),
@@ -105,7 +106,7 @@ func (f *fixture) TestExtendedDeletingOneRecordRetainsOthers(t *testing.T) {
 	}
 
 	// clean up the second record
-	if err := f.testSolver.CleanUp(ch2); err != nil {
+	if err := f.testSolver.CleanUp(context.Background(), ch2); err != nil {
 		t.Errorf("expected CleanUp to not error, but got: %v", err)
 	}
 

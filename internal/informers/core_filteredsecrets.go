@@ -31,7 +31,6 @@ import (
 	kubeinformers "k8s.io/client-go/informers"
 	certificatesv1 "k8s.io/client-go/informers/certificates/v1"
 	corev1informers "k8s.io/client-go/informers/core/v1"
-	internalinterfaces "k8s.io/client-go/informers/internalinterfaces"
 	networkingv1informers "k8s.io/client-go/informers/networking/v1"
 	"k8s.io/client-go/kubernetes"
 	typedcorev1 "k8s.io/client-go/kubernetes/typed/core/v1"
@@ -71,10 +70,9 @@ type filteredSecretsFactory struct {
 	metadataInformerFactory metadatainformer.SharedInformerFactory
 	client                  kubernetes.Interface
 	namespace               string
-	ctx                     context.Context
 }
 
-func NewFilteredSecretsKubeInformerFactory(ctx context.Context, typedClient kubernetes.Interface, metadataClient metadata.Interface, resync time.Duration, namespace string) KubeInformerFactory {
+func NewFilteredSecretsKubeInformerFactory(typedClient kubernetes.Interface, metadataClient metadata.Interface, resync time.Duration, namespace string) KubeInformerFactory {
 	return &filteredSecretsFactory{
 		typedInformerFactory: kubeinformers.NewSharedInformerFactoryWithOptions(typedClient, resync, kubeinformers.WithNamespace(namespace)),
 		metadataInformerFactory: metadatainformer.NewFilteredSharedInformerFactory(metadataClient, resync, namespace, func(listOptions *metav1.ListOptions) {
@@ -86,10 +84,6 @@ func NewFilteredSecretsKubeInformerFactory(ctx context.Context, typedClient kube
 		// flag
 		namespace: namespace,
 		client:    typedClient,
-		// Go recommends to not store context in
-		// structs, but here we have no other way as we need to use root context inside
-		// Get whose signature is defined upstream and does not accept context
-		ctx: ctx,
 	}
 }
 
@@ -132,18 +126,11 @@ func (bf *filteredSecretsFactory) CertificateSigningRequests() certificatesv1.Ce
 }
 
 func (bf *filteredSecretsFactory) Secrets() SecretInformer {
-	f := func(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
-		return corev1informers.NewFilteredSecretInformer(client, bf.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, func(listOptions *metav1.ListOptions) {
-			listOptions.LabelSelector = isCertManageSecretLabelSelector.String()
-		})
-	}
 	return &filteredSecretInformer{
 		typedInformerFactory:    bf.typedInformerFactory,
 		metadataInformerFactory: bf.metadataInformerFactory,
 		namespace:               bf.namespace,
 		typedClient:             bf.client.CoreV1(),
-		newTyped:                f,
-		ctx:                     bf.ctx,
 	}
 }
 
@@ -153,13 +140,16 @@ type filteredSecretInformer struct {
 	typedInformerFactory    kubeinformers.SharedInformerFactory
 	metadataInformerFactory metadatainformer.SharedInformerFactory
 	typedClient             typedcorev1.SecretsGetter
-	newTyped                internalinterfaces.NewInformerFunc
 
 	namespace string
-	// Go recommends to not store context in
-	// structs, but here we have no other way as we need to use root context inside
-	// Get whose signature is defined upstream and does not accept context
-	ctx context.Context
+}
+
+func (f *filteredSecretInformer) newTyped(client kubernetes.Interface, resyncPeriod time.Duration) cache.SharedIndexInformer {
+	return corev1informers.NewFilteredSecretInformer(
+		client, f.namespace, resyncPeriod, cache.Indexers{cache.NamespaceIndex: cache.MetaNamespaceIndexFunc}, func(listOptions *metav1.ListOptions) {
+			listOptions.LabelSelector = isCertManageSecretLabelSelector.String()
+		},
+	)
 }
 
 func (f *filteredSecretInformer) Informer() Informer {
@@ -181,7 +171,6 @@ func (f *filteredSecretInformer) Lister() SecretLister {
 		namespace:             f.namespace,
 		typedLister:           typedLister,
 		partialMetadataLister: metadataLister,
-		ctx:                   f.ctx,
 	}
 }
 
@@ -196,6 +185,7 @@ func (i *informer) HasSynced() bool {
 }
 
 func (i *informer) AddEventHandler(handler cache.ResourceEventHandler) (cache.ResourceEventHandlerRegistration, error) {
+	// TODO: fix registration return value
 	_, err := i.metadataInformer.AddEventHandler(handler)
 	if err != nil {
 		return nil, err
@@ -212,23 +202,16 @@ type secretLister struct {
 	partialMetadataLister metadatalister.Lister
 	typedLister           corev1listers.SecretLister
 	typedClient           typedcorev1.SecretsGetter
-	// Go recommends to not store context in
-	// structs, but here we have no other way as we need to use root context inside
-	// Get whose signature is defined upstream and does not accept context
-	ctx context.Context
 }
 
-func (sl *secretLister) Secrets(namespace string) corev1listers.SecretNamespaceLister {
+func (sl *secretLister) Secrets(namespace string) SecretNamespaceLister {
 	return &secretNamespaceLister{
-		namespace:             namespace,
-		partialMetadataLister: sl.partialMetadataLister,
-		typedLister:           sl.typedLister,
-		typedClient:           sl.typedClient,
-		ctx:                   sl.ctx,
+		namespace:    namespace,
+		secretLister: *sl,
 	}
 }
 
-var _ corev1listers.SecretNamespaceLister = &secretNamespaceLister{}
+var _ SecretNamespaceLister = &secretNamespaceLister{}
 
 // secretNamespaceLister is an implementation of
 // corelisters.SecretNamespaceLister
@@ -237,46 +220,44 @@ var _ corev1listers.SecretNamespaceLister = &secretNamespaceLister{}
 // and kube apiserver. It looks for Secrets in both caches, if the Secret is
 // found in metadata cache, it will retrieve it from kube apiserver.
 type secretNamespaceLister struct {
-	namespace             string
-	partialMetadataLister metadatalister.Lister
-	typedLister           corev1listers.SecretLister
-	typedClient           typedcorev1.SecretsGetter
-	// Go recommends to not store context in
-	// structs, but here we have no other way as we need to use root context inside
-	// Get whose signature is defined upstream and does not accept context
-	ctx context.Context
+	namespace string
+	secretLister
 }
 
-func (snl *secretNamespaceLister) Get(name string) (*corev1.Secret, error) {
-	log := logf.FromContext(snl.ctx)
+func (snl *secretNamespaceLister) Get(ctx context.Context, name string) (*corev1.Secret, error) {
+	log := logf.FromContext(ctx)
 	log = log.WithValues("secret", name, "namespace", snl.namespace)
+	key := types.NamespacedName{Namespace: snl.namespace, Name: name}
 
 	var secretFoundInTypedCache, secretFoundInMetadataCache bool
-	secret, typedCacheErr := snl.typedLister.Secrets(snl.namespace).Get(name)
+	secret, typedCacheErr := snl.typedLister.Secrets(key.Namespace).Get(key.Name)
 	if typedCacheErr == nil {
 		secretFoundInTypedCache = true
+	} else if !apierrors.IsNotFound(typedCacheErr) {
+		log.Error(typedCacheErr, "error getting Secrets from typed cache", "secret", key)
+		return nil, typedCacheErr
 	}
 
-	if typedCacheErr != nil && !apierrors.IsNotFound(typedCacheErr) {
-		log.Error(typedCacheErr, "error getting secret from typed cache")
-		return nil, fmt.Errorf("error retrieving secret from the typed cache: %w", typedCacheErr)
-	}
-	_, partialMetadataGetErr := snl.partialMetadataLister.Namespace(snl.namespace).Get(name)
+	_, partialMetadataGetErr := snl.partialMetadataLister.Namespace(key.Namespace).Get(key.Name)
 	if partialMetadataGetErr == nil {
 		secretFoundInMetadataCache = true
-	}
-
-	if partialMetadataGetErr != nil && !apierrors.IsNotFound(partialMetadataGetErr) {
-		return nil, fmt.Errorf("error retrieving object from partial object metadata cache: %w", partialMetadataGetErr)
+	} else if !apierrors.IsNotFound(partialMetadataGetErr) {
+		log.Error(typedCacheErr, "error getting Secrets from partial object metadata cache", "secret", key)
+		return nil, partialMetadataGetErr
 	}
 
 	if secretFoundInMetadataCache {
 		// if secret is found in both caches log an error and return the version from kube apiserver
 		if secretFoundInTypedCache {
-			key := types.NamespacedName{Namespace: snl.namespace, Name: name}
 			log.Info(fmt.Sprintf("warning: possible internal error: stale cache: secret found both in typed cache and in partial cache: %s", pleaseOpenIssue), "secret", key)
 		}
-		return snl.typedClient.Secrets(snl.namespace).Get(snl.ctx, name, metav1.GetOptions{})
+
+		secret, err := snl.typedClient.Secrets(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
+		if err != nil {
+			log.Error(err, "error retrieving secret from kube apiserver", "secret", key)
+			return nil, err
+		}
+		return secret, nil
 	}
 
 	if secretFoundInTypedCache {
@@ -288,10 +269,12 @@ func (snl *secretNamespaceLister) Get(name string) (*corev1.Secret, error) {
 	return nil, apierrors.NewNotFound(schema.GroupResource{Group: corev1.GroupName, Resource: corev1.ResourceSecrets.String()}, name)
 }
 
-func (snl *secretNamespaceLister) List(selector labels.Selector) ([]*corev1.Secret, error) {
-	log := logf.FromContext(snl.ctx)
+func (snl *secretNamespaceLister) List(ctx context.Context, selector labels.Selector) ([]*corev1.Secret, error) {
+	log := logf.FromContext(ctx)
 	log = log.WithValues("secrets namespace", snl.namespace, "secrets selector", selector.String())
+
 	matchingSecretsMap := make(map[types.NamespacedName]*corev1.Secret)
+
 	typedSecrets, err := snl.typedLister.List(selector)
 	if err != nil {
 		log.Error(err, "error listing Secrets from typed cache")
@@ -301,6 +284,7 @@ func (snl *secretNamespaceLister) List(selector labels.Selector) ([]*corev1.Secr
 		key := types.NamespacedName{Namespace: secret.Namespace, Name: secret.Name}
 		matchingSecretsMap[key] = secret
 	}
+
 	metadataSecrets, err := snl.partialMetadataLister.List(selector)
 	if err != nil {
 		log.Error(err, "error listing Secrets from metadata only cache")
@@ -314,20 +298,22 @@ func (snl *secretNamespaceLister) List(selector labels.Selector) ([]*corev1.Secr
 	for _, secretMeta := range metadataSecrets {
 		key := types.NamespacedName{Namespace: secretMeta.Namespace, Name: secretMeta.Name}
 		if _, ok := matchingSecretsMap[key]; ok {
-			log.Info(fmt.Sprintf("warning: possible internal error: stale cache: secret found both in typed cache and in partial cache: %s", pleaseOpenIssue), "secret name", secretMeta.Name)
+			log.Info(fmt.Sprintf("warning: possible internal error: stale cache: secret found both in typed cache and in partial cache: %s", pleaseOpenIssue), "secret", key)
 			// in case of duplicates, return the version from kube apiserver
 		}
-		secret, err := snl.typedClient.Secrets(snl.namespace).Get(snl.ctx, secretMeta.Name, metav1.GetOptions{})
+
+		secret, err := snl.typedClient.Secrets(key.Namespace).Get(ctx, key.Name, metav1.GetOptions{})
 		if err != nil {
-			log.Error(err, "error retrieving secret from kube apiserver", "secret name", secretMeta.Name)
+			log.Error(err, "error retrieving secret from kube apiserver", "secret", key)
 			return nil, err
 		}
 		matchingSecretsMap[key] = secret
 	}
 
-	matchingSecrets := make([]*corev1.Secret, 0)
+	matchingSecrets := make([]*corev1.Secret, 0, len(matchingSecretsMap))
 	for _, val := range matchingSecretsMap {
 		matchingSecrets = append(matchingSecrets, val)
 	}
+
 	return matchingSecrets, nil
 }

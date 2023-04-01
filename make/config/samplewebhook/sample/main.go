@@ -17,6 +17,7 @@ limitations under the License.
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -98,7 +99,7 @@ func (c *customDNSProviderSolver) Name() string {
 // This method should tolerate being called multiple times with the same value.
 // cert-manager itself will later perform a self check to ensure that the
 // solver has correctly configured the DNS provider.
-func (c *customDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
+func (c *customDNSProviderSolver) Present(_ context.Context, ch *v1alpha1.ChallengeRequest) error {
 	cfg, err := loadConfig(ch.Config)
 	if err != nil {
 		return err
@@ -117,7 +118,7 @@ func (c *customDNSProviderSolver) Present(ch *v1alpha1.ChallengeRequest) error {
 // value provided on the ChallengeRequest should be cleaned up.
 // This is in order to facilitate multiple DNS validations for the same domain
 // concurrently.
-func (c *customDNSProviderSolver) CleanUp(ch *v1alpha1.ChallengeRequest) error {
+func (c *customDNSProviderSolver) CleanUp(_ context.Context, ch *v1alpha1.ChallengeRequest) error {
 	// TODO: add code that deletes a record from the DNS provider's console
 	return nil
 }

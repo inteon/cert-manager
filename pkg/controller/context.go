@@ -269,7 +269,7 @@ func NewContextFactory(ctx context.Context, opts ContextOptions) (*ContextFactor
 
 	var kubeSharedInformerFactory internalinformers.KubeInformerFactory
 	if utilfeature.DefaultFeatureGate.Enabled(feature.SecretsFilteredCaching) {
-		kubeSharedInformerFactory = internalinformers.NewFilteredSecretsKubeInformerFactory(ctx, clients.kubeClient, clients.metadataOnlyClient, resyncPeriod, opts.Namespace)
+		kubeSharedInformerFactory = internalinformers.NewFilteredSecretsKubeInformerFactory(clients.kubeClient, clients.metadataOnlyClient, resyncPeriod, opts.Namespace)
 	} else {
 		kubeSharedInformerFactory = internalinformers.NewBaseKubeInformerFactory(clients.kubeClient, resyncPeriod, opts.Namespace)
 	}

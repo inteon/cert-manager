@@ -17,14 +17,13 @@ limitations under the License.
 package rfc2136
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
-	"k8s.io/client-go/informers"
 	"k8s.io/client-go/kubernetes"
-	corelisters "k8s.io/client-go/listers/core/v1"
 	restclient "k8s.io/client-go/rest"
 
 	internalinformers "github.com/cert-manager/cert-manager/internal/informers"
@@ -88,8 +87,8 @@ func (s *Solver) Name() string {
 	return SolverName
 }
 
-func (s *Solver) Present(ch *whapi.ChallengeRequest) error {
-	p, err := s.buildDNSProvider(ch)
+func (s *Solver) Present(ctx context.Context, ch *whapi.ChallengeRequest) error {
+	p, err := s.buildDNSProvider(ctx, ch)
 	if err != nil {
 		return err
 	}
@@ -102,8 +101,8 @@ func (s *Solver) Present(ch *whapi.ChallengeRequest) error {
 	return nil
 }
 
-func (s *Solver) CleanUp(ch *whapi.ChallengeRequest) error {
-	p, err := s.buildDNSProvider(ch)
+func (s *Solver) CleanUp(ctx context.Context, ch *whapi.ChallengeRequest) error {
+	p, err := s.buildDNSProvider(ctx, ch)
 	if err != nil {
 		return err
 	}
@@ -123,6 +122,7 @@ func (s *Solver) Initialize(kubeClientConfig *restclient.Config, stopCh <-chan s
 	// Only start a secrets informerfactory if it is needed (if the solver
 	// is not already initialized with a secrets lister) This is legacy
 	// functionality and is currently only used in integration tests.
+	// DEPRECATED: Only use this in tests. This will be removed in the future!
 	if s.secretLister == nil {
 		cl, err := kubernetes.NewForConfig(kubeClientConfig)
 		if err != nil {
@@ -131,8 +131,8 @@ func (s *Solver) Initialize(kubeClientConfig *restclient.Config, stopCh <-chan s
 
 		// obtain a secret lister and start the informer factory to populate the
 		// secret cache
-		factory := informers.NewSharedInformerFactoryWithOptions(cl, time.Minute*5, informers.WithNamespace(s.namespace))
-		s.secretLister = factory.Core().V1().Secrets().Lister()
+		factory := internalinformers.NewBaseKubeInformerFactory(cl, time.Minute*5, s.namespace)
+		s.secretLister = factory.Secrets().Lister()
 		factory.Start(stopCh)
 		factory.WaitForCacheSync(stopCh)
 	}
@@ -148,7 +148,7 @@ func (s *Solver) loadConfig(cfgJSON apiextensionsv1.JSON) (*cmacme.ACMEIssuerDNS
 	return &cfg, nil
 }
 
-func loadSecretKeySelector(l corelisters.SecretNamespaceLister, sks cmmeta.SecretKeySelector, defaultKey string) ([]byte, error) {
+func loadSecretKeySelector(l internalinformers.SecretNamespaceLister, ctx context.Context, sks cmmeta.SecretKeySelector, defaultKey string) ([]byte, error) {
 	if sks.Name == "" {
 		logf.Log.V(logf.WarnLevel).Info("rfc2136: secret name not specified")
 		return nil, nil
@@ -160,7 +160,7 @@ func loadSecretKeySelector(l corelisters.SecretNamespaceLister, sks cmmeta.Secre
 	if key == "" {
 		return nil, fmt.Errorf("key of data in Secret resource must be specified")
 	}
-	secret, err := l.Get(sks.Name)
+	secret, err := l.Get(ctx, sks.Name)
 	if err != nil {
 		return nil, err
 	}
@@ -170,7 +170,7 @@ func loadSecretKeySelector(l corelisters.SecretNamespaceLister, sks cmmeta.Secre
 	return nil, fmt.Errorf("data entry with key %q not found in secret", key)
 }
 
-func (s *Solver) buildDNSProvider(ch *whapi.ChallengeRequest) (*DNSProvider, error) {
+func (s *Solver) buildDNSProvider(ctx context.Context, ch *whapi.ChallengeRequest) (*DNSProvider, error) {
 	if ch.Config == nil {
 		return nil, fmt.Errorf("no challenge solver config provided")
 	}
@@ -181,7 +181,7 @@ func (s *Solver) buildDNSProvider(ch *whapi.ChallengeRequest) (*DNSProvider, err
 	}
 
 	l := s.secretLister.Secrets(ch.ResourceNamespace)
-	secret, err := loadSecretKeySelector(l, cfg.TSIGSecret, "")
+	secret, err := loadSecretKeySelector(l, ctx, cfg.TSIGSecret, "")
 	if err != nil {
 		return nil, err
 	}

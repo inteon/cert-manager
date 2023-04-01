@@ -242,7 +242,7 @@ type Gatherer struct {
 func (g *Gatherer) DataForCertificate(ctx context.Context, crt *cmapi.Certificate) (Input, error) {
 	log := logf.FromContext(ctx)
 	// Attempt to fetch the Secret being managed but tolerate NotFound errors.
-	secret, err := g.SecretLister.Secrets(crt.Namespace).Get(crt.Spec.SecretName)
+	secret, err := g.SecretLister.Secrets(crt.Namespace).Get(ctx, crt.Spec.SecretName)
 	if err != nil && !apierrors.IsNotFound(err) {
 		return Input{}, err
 	}

@@ -220,13 +220,14 @@ func Test_secretNamespaceLister_Get(t *testing.T) {
 	for name, scenario := range tests {
 		t.Run(name, func(t *testing.T) {
 			snl := &secretNamespaceLister{
-				namespace:             scenario.namespace,
-				partialMetadataLister: scenario.partialMetadataLister,
-				typedLister:           scenario.typedLister,
-				typedClient:           scenario.typedClient,
-				ctx:                   context.Background(),
+				namespace: scenario.namespace,
+				secretLister: secretLister{
+					partialMetadataLister: scenario.partialMetadataLister,
+					typedLister:           scenario.typedLister,
+					typedClient:           scenario.typedClient,
+				},
 			}
-			got, err := snl.Get(name)
+			got, err := snl.Get(context.Background(), name)
 			if (err != nil) != scenario.wantErr {
 				t.Errorf("secretNamespaceLister.Get() error = %v, wantErr %v", err, scenario.wantErr)
 				return
@@ -434,13 +435,14 @@ func Test_secretNamespaceLister_List(t *testing.T) {
 	for name, scenario := range tests {
 		t.Run(name, func(t *testing.T) {
 			snl := &secretNamespaceLister{
-				namespace:             scenario.namespace,
-				partialMetadataLister: scenario.partialMetadataLister,
-				typedLister:           scenario.typedLister,
-				typedClient:           scenario.typedClient,
-				ctx:                   context.Background(),
+				namespace: scenario.namespace,
+				secretLister: secretLister{
+					partialMetadataLister: scenario.partialMetadataLister,
+					typedLister:           scenario.typedLister,
+					typedClient:           scenario.typedClient,
+				},
 			}
-			got, err := snl.List(someSelector)
+			got, err := snl.List(context.Background(), someSelector)
 			if (err != nil) != scenario.wantErr {
 				t.Errorf("secretNamespaceLister.List() error = %v, wantErr %v", err, scenario.wantErr)
 				return

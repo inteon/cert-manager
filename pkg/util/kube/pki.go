@@ -33,7 +33,7 @@ import (
 // secret with 'name' in 'namespace'. It will read the private key data from the secret
 // entry with name 'keyName'.
 func SecretTLSKeyRef(ctx context.Context, secretLister internalinformers.SecretLister, namespace, name, keyName string) (crypto.Signer, error) {
-	secret, err := secretLister.Secrets(namespace).Get(name)
+	secret, err := secretLister.Secrets(namespace).Get(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -70,7 +70,7 @@ func ParseTLSKeyFromSecret(secret *corev1.Secret, keyName string) (crypto.Signer
 }
 
 func SecretTLSCertChain(ctx context.Context, secretLister internalinformers.SecretLister, namespace, name string) ([]*x509.Certificate, error) {
-	secret, err := secretLister.Secrets(namespace).Get(name)
+	secret, err := secretLister.Secrets(namespace).Get(ctx, name)
 	if err != nil {
 		return nil, err
 	}
@@ -97,7 +97,7 @@ func SecretTLSKeyPairAndCA(ctx context.Context, secretLister internalinformers.S
 		return nil, nil, err
 	}
 
-	secret, err := secretLister.Secrets(namespace).Get(name)
+	secret, err := secretLister.Secrets(namespace).Get(ctx, name)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -115,7 +115,7 @@ func SecretTLSKeyPairAndCA(ctx context.Context, secretLister internalinformers.S
 }
 
 func SecretTLSKeyPair(ctx context.Context, secretLister internalinformers.SecretLister, namespace, name string) ([]*x509.Certificate, crypto.Signer, error) {
-	secret, err := secretLister.Secrets(namespace).Get(name)
+	secret, err := secretLister.Secrets(namespace).Get(ctx, name)
 	if err != nil {
 		return nil, nil, err
 	}
