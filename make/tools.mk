@@ -472,6 +472,7 @@ tidy:
 	cd cmd/acmesolver && go mod tidy
 	cd cmd/cainjector && go mod tidy
 	cd cmd/controller && go mod tidy
+	cd cmd/core-issuers && go mod tidy
 	cd cmd/ctl && go mod tidy
 	cd cmd/webhook && go mod tidy
 	cd test/integration && go mod tidy
@@ -484,4 +485,4 @@ go-workspace: export GOWORK?=$(abspath go.work)
 go-workspace:
 	@rm -f $(GOWORK)
 	go work init
-	go work use . ./cmd/acmesolver ./cmd/cainjector ./cmd/controller ./cmd/ctl ./cmd/webhook ./test/integration ./test/e2e
+	go work use . ./cmd/acmesolver ./cmd/cainjector ./cmd/controller ./cmd/core-issuers ./cmd/ctl ./cmd/webhook ./test/integration ./test/e2e

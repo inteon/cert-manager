@@ -30,8 +30,8 @@ import (
 
 	"github.com/cert-manager/cert-manager/cmctl-binary/pkg/build"
 	"github.com/cert-manager/cert-manager/cmctl-binary/pkg/factory"
+	"github.com/cert-manager/cert-manager/cmctl-binary/util/versionchecker"
 	"github.com/cert-manager/cert-manager/pkg/util"
-	"github.com/cert-manager/cert-manager/pkg/util/versionchecker"
 )
 
 // Version is a struct for version information

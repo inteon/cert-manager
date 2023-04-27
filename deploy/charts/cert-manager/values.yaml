@@ -449,6 +449,91 @@ webhook:
   volumes: []
   volumeMounts: []
 
+coreIssuers:
+  enabled: true
+  replicaCount: 1
+
+  # Pod Security Context to be set on the core-issuers pod
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  securityContext:
+    runAsNonRoot: true
+    seccompProfile:
+      type: RuntimeDefault
+
+  # Container Security Context to be set on the core-issuers pod
+  # ref: https://kubernetes.io/docs/tasks/configure-pod-container/security-context/
+  containerSecurityContext:
+    allowPrivilegeEscalation: false
+    capabilities:
+      drop:
+      - ALL
+    readOnlyRootFilesystem: true
+    runAsNonRoot: true
+
+  # Optional additional annotations to add to the core-issuers Deployment
+  # deploymentAnnotations: {}
+
+  # Optional additional annotations to add to the core-issuers Pods
+  # podAnnotations: {}
+
+  # Additional command line flags to pass to cert-manager core-issuers binary.
+  # To see all available flags run 'docker run quay.io/jetstack/cert-manager-core-issuers:<version> --help'
+  extraArgs: []
+
+  # Enable profiling for core-issuers
+  # - --enable-profiling=true
+
+  resources: {}
+    # requests:
+    #   cpu: 10m
+    #   memory: 32Mi
+
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  affinity: {}
+
+  tolerations: []
+
+  topologySpreadConstraints: []
+
+  # Optional additional labels to add to the core-issuers pod(s)
+  podLabels: {}
+
+  image:
+    repository: quay.io/jetstack/cert-manager-core-issuers
+    # You can manage a registry with
+    # registry: quay.io
+    # repository: jetstack/cert-manager-core-issuers
+
+    # Override the image tag to deploy by setting this variable.
+    # If no value is set, the chart's appVersion will be used.
+    # tag: canary
+
+    # Setting a digest will override any tag
+    # digest: sha256:0e072dddd1f7f8fc8909a2ca6f65e76c5f0d2fcfb8be47935ae3457e8bbceb20
+
+    pullPolicy: IfNotPresent
+
+  serviceAccount:
+    # Specifies whether a service account should be created
+    create: true
+    # The name of the service account to use.
+    # If not set and create is true, a name is generated using the fullname template
+    # name: ""
+    # Optional additional annotations to add to the controller's ServiceAccount
+    # annotations: {}
+    # Automount API credentials for a Service Account.
+    # Optional additional labels to add to the cainjector's ServiceAccount
+    # labels: {}
+    automountServiceAccountToken: true
+
+  # Automounting API credentials for a particular pod
+  # automountServiceAccountToken: true
+
+  volumes: []
+  volumeMounts: []
+
 cainjector:
   enabled: true
   replicaCount: 1

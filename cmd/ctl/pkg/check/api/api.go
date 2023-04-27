@@ -32,8 +32,8 @@ import (
 	"k8s.io/kubectl/pkg/util/templates"
 
 	"github.com/cert-manager/cert-manager/cmctl-binary/pkg/factory"
+	"github.com/cert-manager/cert-manager/cmctl-binary/util/cmapichecker"
 	cmcmdutil "github.com/cert-manager/cert-manager/internal/cmd/util"
-	"github.com/cert-manager/cert-manager/pkg/util/cmapichecker"
 )
 
 // Options is a struct to support check api command

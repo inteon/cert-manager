@@ -29,16 +29,9 @@ import (
 	cmdutil "github.com/cert-manager/cert-manager/internal/cmd/util"
 	"github.com/cert-manager/cert-manager/internal/controller/feature"
 	cm "github.com/cert-manager/cert-manager/pkg/apis/certmanager"
-	challengescontroller "github.com/cert-manager/cert-manager/pkg/controller/acmechallenges"
-	orderscontroller "github.com/cert-manager/cert-manager/pkg/controller/acmeorders"
 	shimgatewaycontroller "github.com/cert-manager/cert-manager/pkg/controller/certificate-shim/gateways"
 	shimingresscontroller "github.com/cert-manager/cert-manager/pkg/controller/certificate-shim/ingresses"
-	cracmecontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/acme"
 	crapprovercontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/approver"
-	crcacontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/ca"
-	crselfsignedcontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/selfsigned"
-	crvaultcontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/vault"
-	crvenaficontroller "github.com/cert-manager/cert-manager/pkg/controller/certificaterequests/venafi"
 	"github.com/cert-manager/cert-manager/pkg/controller/certificates/issuing"
 	"github.com/cert-manager/cert-manager/pkg/controller/certificates/keymanager"
 	certificatesmetricscontroller "github.com/cert-manager/cert-manager/pkg/controller/certificates/metrics"
@@ -46,13 +39,6 @@ import (
 	"github.com/cert-manager/cert-manager/pkg/controller/certificates/requestmanager"
 	"github.com/cert-manager/cert-manager/pkg/controller/certificates/revisionmanager"
 	"github.com/cert-manager/cert-manager/pkg/controller/certificates/trigger"
-	csracmecontroller "github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/acme"
-	csrcacontroller "github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/ca"
-	csrselfsignedcontroller "github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/selfsigned"
-	csrvaultcontroller "github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/vault"
-	csrvenaficontroller "github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/venafi"
-	clusterissuerscontroller "github.com/cert-manager/cert-manager/pkg/controller/clusterissuers"
-	issuerscontroller "github.com/cert-manager/cert-manager/pkg/controller/issuers"
 	logf "github.com/cert-manager/cert-manager/pkg/logs"
 	"github.com/cert-manager/cert-manager/pkg/util"
 	utilfeature "github.com/cert-manager/cert-manager/pkg/util/feature"
@@ -166,19 +152,10 @@ var (
 	defaultAutoCertificateAnnotations = []string{"kubernetes.io/tls-acme"}
 
 	allControllers = []string{
-		issuerscontroller.ControllerName,
-		clusterissuerscontroller.ControllerName,
 		certificatesmetricscontroller.ControllerName,
 		shimingresscontroller.ControllerName,
 		shimgatewaycontroller.ControllerName,
-		orderscontroller.ControllerName,
-		challengescontroller.ControllerName,
-		cracmecontroller.CRControllerName,
 		crapprovercontroller.ControllerName,
-		crcacontroller.CRControllerName,
-		crselfsignedcontroller.CRControllerName,
-		crvaultcontroller.CRControllerName,
-		crvenaficontroller.CRControllerName,
 		// certificate controllers
 		trigger.ControllerName,
 		issuing.ControllerName,
@@ -189,18 +166,9 @@ var (
 	}
 
 	defaultEnabledControllers = []string{
-		issuerscontroller.ControllerName,
-		clusterissuerscontroller.ControllerName,
 		certificatesmetricscontroller.ControllerName,
 		shimingresscontroller.ControllerName,
-		orderscontroller.ControllerName,
-		challengescontroller.ControllerName,
-		cracmecontroller.CRControllerName,
 		crapprovercontroller.ControllerName,
-		crcacontroller.CRControllerName,
-		crselfsignedcontroller.CRControllerName,
-		crvaultcontroller.CRControllerName,
-		crvenaficontroller.CRControllerName,
 		// certificate controllers
 		trigger.ControllerName,
 		issuing.ControllerName,
@@ -210,13 +178,6 @@ var (
 		revisionmanager.ControllerName,
 	}
 
-	experimentalCertificateSigningRequestControllers = []string{
-		csracmecontroller.CSRControllerName,
-		csrcacontroller.CSRControllerName,
-		csrselfsignedcontroller.CSRControllerName,
-		csrvenaficontroller.CSRControllerName,
-		csrvaultcontroller.CSRControllerName,
-	}
 	// Annotations that will be copied from Certificate to CertificateRequest and to Order.
 	// By default, copy all annotations except for the ones applied by kubectl, fluxcd, argocd.
 	defaultCopiedAnnotationPrefixes = []string{
@@ -442,11 +403,6 @@ func (o *ControllerOptions) EnabledControllers() sets.String {
 	}
 
 	enabled = enabled.Delete(disabled...)
-
-	if utilfeature.DefaultFeatureGate.Enabled(feature.ExperimentalCertificateSigningRequestControllers) {
-		logf.Log.Info("enabling all experimental certificatesigningrequest controllers")
-		enabled = enabled.Insert(experimentalCertificateSigningRequestControllers...)
-	}
 
 	if utilfeature.DefaultFeatureGate.Enabled(feature.ExperimentalGatewayAPISupport) {
 		logf.Log.Info("enabling the sig-network Gateway API certificate-shim and HTTP-01 solver")

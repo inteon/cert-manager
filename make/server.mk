@@ -36,6 +36,24 @@ $(BINDIR)/server/controller-linux-ppc64le: $(SOURCES) | $(NEEDS_GO) $(BINDIR)/se
 $(BINDIR)/server/controller-linux-arm: $(SOURCES) | $(NEEDS_GO) $(BINDIR)/server
 	cd cmd/controller && GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o ../../$@ $(GOFLAGS) -ldflags '$(GOLDFLAGS)' main.go
 
+.PHONY: core-issuers
+core-issuers: $(BINDIR)/server/core-issuers-linux-amd64 $(BINDIR)/server/core-issuers-linux-arm64 $(BINDIR)/server/core-issuers-linux-s390x $(BINDIR)/server/core-issuers-linux-ppc64le $(BINDIR)/server/core-issuers-linux-arm | $(NEEDS_GO) $(BINDIR)/server
+
+$(BINDIR)/server/core-issuers-linux-amd64: $(SOURCES) | $(NEEDS_GO) $(BINDIR)/server
+	cd cmd/core-issuers && GOOS=linux GOARCH=amd64 $(GOBUILD) -o ../../$@ $(GOFLAGS) -ldflags '$(GOLDFLAGS)' main.go
+
+$(BINDIR)/server/core-issuers-linux-arm64: $(SOURCES) | $(NEEDS_GO) $(BINDIR)/server
+	cd cmd/core-issuers && GOOS=linux GOARCH=arm64 $(GOBUILD) -o ../../$@ $(GOFLAGS) -ldflags '$(GOLDFLAGS)' main.go
+
+$(BINDIR)/server/core-issuers-linux-s390x: $(SOURCES) | $(NEEDS_GO) $(BINDIR)/server
+	cd cmd/core-issuers && GOOS=linux GOARCH=s390x $(GOBUILD) -o ../../$@ $(GOFLAGS) -ldflags '$(GOLDFLAGS)' main.go
+
+$(BINDIR)/server/core-issuers-linux-ppc64le: $(SOURCES) | $(NEEDS_GO) $(BINDIR)/server
+	cd cmd/core-issuers && GOOS=linux GOARCH=ppc64le $(GOBUILD) -o ../../$@ $(GOFLAGS) -ldflags '$(GOLDFLAGS)' main.go
+
+$(BINDIR)/server/core-issuers-linux-arm: $(SOURCES) | $(NEEDS_GO) $(BINDIR)/server
+	cd cmd/core-issuers && GOOS=linux GOARCH=arm GOARM=7 $(GOBUILD) -o ../../$@ $(GOFLAGS) -ldflags '$(GOLDFLAGS)' main.go
+
 .PHONY: acmesolver
 acmesolver: $(BINDIR)/server/acmesolver-linux-amd64 $(BINDIR)/server/acmesolver-linux-arm64 $(BINDIR)/server/acmesolver-linux-s390x $(BINDIR)/server/acmesolver-linux-ppc64le $(BINDIR)/server/acmesolver-linux-arm | $(NEEDS_GO) $(BINDIR)/server
 

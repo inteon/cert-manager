@@ -1,0 +1,117 @@
+{{- if .Values.coreIssuers.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "coreIssuers.fullname" . }}
+  namespace: {{ include "cert-manager.namespace" . }}
+  labels:
+    app: {{ include "coreIssuers.name" . }}
+    app.kubernetes.io/name: {{ include "coreIssuers.name" . }}
+    app.kubernetes.io/instance: {{ .Release.Name }}
+    app.kubernetes.io/component: "core-issuers"
+    {{- include "labels" . | nindent 4 }}
+  {{- with .Values.coreIssuers.deploymentAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+spec:
+  replicas: {{ .Values.coreIssuers.replicaCount }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "coreIssuers.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+      app.kubernetes.io/component: "core-issuers"
+  {{- with .Values.coreIssuers.strategy }}
+  strategy:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  template:
+    metadata:
+      labels:
+        app: {{ include "coreIssuers.name" . }}
+        app.kubernetes.io/name: {{ include "coreIssuers.name" . }}
+        app.kubernetes.io/instance: {{ .Release.Name }}
+        app.kubernetes.io/component: "core-issuers"
+        {{- include "labels" . | nindent 8 }}
+        {{- with .Values.coreIssuers.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.coreIssuers.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+    spec:
+      serviceAccountName: {{ template "coreIssuers.serviceAccountName" . }}
+      {{- if hasKey .Values.coreIssuers "automountServiceAccountToken" }}
+      automountServiceAccountToken: {{ .Values.coreIssuers.automountServiceAccountToken }}
+      {{- end }}
+      {{- with .Values.global.priorityClassName }}
+      priorityClassName: {{ . | quote }}
+      {{- end }}
+      {{- with .Values.coreIssuers.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}-core-issuers
+          {{- with .Values.coreIssuers.image }}
+          image: "{{- if .registry -}}{{ .registry }}/{{- end -}}{{ .repository }}{{- if (.digest) -}} @{{ .digest }}{{- else -}}:{{ default $.Chart.AppVersion .tag }} {{- end -}}"
+          {{- end }}
+          imagePullPolicy: {{ .Values.coreIssuers.image.pullPolicy }}
+          args:
+          {{- if .Values.global.logLevel }}
+          - --v={{ .Values.global.logLevel }}
+          {{- end }}
+          {{- with .Values.global.leaderElection }}
+          - --leader-election-namespace={{ .namespace }}
+          {{- if .leaseDuration }}
+          - --leader-election-lease-duration={{ .leaseDuration }}
+          {{- end }}
+          {{- if .renewDeadline }}
+          - --leader-election-renew-deadline={{ .renewDeadline }}
+          {{- end }}
+          {{- if .retryPeriod }}
+          - --leader-election-retry-period={{ .retryPeriod }}
+          {{- end }}
+          {{- end }}
+          {{- with .Values.coreIssuers.extraArgs }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
+          env:
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          {{- with .Values.coreIssuers.containerSecurityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.coreIssuers.resources }}
+          resources:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.coreIssuers.volumeMounts }}
+          volumeMounts:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+      {{- with .Values.coreIssuers.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.coreIssuers.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.coreIssuers.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with  .Values.coreIssuers.topologySpreadConstraints }}
+      topologySpreadConstraints:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.coreIssuers.volumes }}
+      volumes:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

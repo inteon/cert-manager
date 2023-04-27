@@ -24,6 +24,12 @@ BASE_IMAGE_controller-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
 BASE_IMAGE_controller-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
 BASE_IMAGE_controller-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
 
+BASE_IMAGE_core-issuers-linux-amd64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_amd64)
+BASE_IMAGE_core-issuers-linux-arm64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm64)
+BASE_IMAGE_core-issuers-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
+BASE_IMAGE_core-issuers-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
+BASE_IMAGE_core-issuers-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
+
 BASE_IMAGE_webhook-linux-amd64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_amd64)
 BASE_IMAGE_webhook-linux-arm64:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm64)
 BASE_IMAGE_webhook-linux-s390x:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_s390x)
@@ -49,7 +55,7 @@ BASE_IMAGE_cmctl-linux-ppc64le:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_ppc64le)
 BASE_IMAGE_cmctl-linux-arm:=$($(BASE_IMAGE_TYPE)_BASE_IMAGE_arm)
 
 .PHONY: all-containers
-all-containers: cert-manager-controller-linux cert-manager-webhook-linux cert-manager-acmesolver-linux cert-manager-cainjector-linux cert-manager-ctl-linux
+all-containers: cert-manager-controller-linux cert-manager-core-issuers-linux cert-manager-webhook-linux cert-manager-acmesolver-linux cert-manager-cainjector-linux cert-manager-ctl-linux
 
 .PHONY: cert-manager-controller-linux
 cert-manager-controller-linux: $(BINDIR)/containers/cert-manager-controller-linux-amd64.tar.gz $(BINDIR)/containers/cert-manager-controller-linux-arm64.tar.gz $(BINDIR)/containers/cert-manager-controller-linux-s390x.tar.gz $(BINDIR)/containers/cert-manager-controller-linux-ppc64le.tar.gz $(BINDIR)/containers/cert-manager-controller-linux-arm.tar.gz
@@ -59,6 +65,19 @@ $(BINDIR)/containers/cert-manager-controller-linux-amd64.tar $(BINDIR)/container
 	@$(eval BASE := BASE_IMAGE_controller-linux-$*)
 	$(CTR) build --quiet \
 		-f hack/containers/Containerfile.controller \
+		--build-arg BASE_IMAGE=$($(BASE)) \
+		-t $(TAG) \
+		$(dir $<) >/dev/null
+	$(CTR) save $(TAG) -o $@ >/dev/null
+
+.PHONY: cert-manager-core-issuers-linux
+cert-manager-core-issuers-linux: $(BINDIR)/containers/cert-manager-core-issuers-linux-amd64.tar.gz $(BINDIR)/containers/cert-manager-core-issuers-linux-arm64.tar.gz $(BINDIR)/containers/cert-manager-core-issuers-linux-s390x.tar.gz $(BINDIR)/containers/cert-manager-core-issuers-linux-ppc64le.tar.gz $(BINDIR)/containers/cert-manager-core-issuers-linux-arm.tar.gz
+
+$(BINDIR)/containers/cert-manager-core-issuers-linux-amd64.tar $(BINDIR)/containers/cert-manager-core-issuers-linux-arm64.tar $(BINDIR)/containers/cert-manager-core-issuers-linux-s390x.tar $(BINDIR)/containers/cert-manager-core-issuers-linux-ppc64le.tar $(BINDIR)/containers/cert-manager-core-issuers-linux-arm.tar: $(BINDIR)/containers/cert-manager-core-issuers-linux-%.tar: $(BINDIR)/scratch/build-context/cert-manager-core-issuers-linux-%/controller hack/containers/Containerfile.core-issuers $(BINDIR)/scratch/build-context/cert-manager-core-issuers-linux-%/cert-manager.license $(BINDIR)/scratch/build-context/cert-manager-core-issuers-linux-%/cert-manager.licenses_notice $(BINDIR)/release-version | $(BINDIR)/containers
+	@$(eval TAG := cert-manager-core-issuers-$*:$(RELEASE_VERSION))
+	@$(eval BASE := BASE_IMAGE_core-issuers-linux-$*)
+	$(CTR) build --quiet \
+		-f hack/containers/Containerfile.core-issuers \
 		--build-arg BASE_IMAGE=$($(BASE)) \
 		-t $(TAG) \
 		$(dir $<) >/dev/null

@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"golang.org/x/sync/errgroup"
-	"k8s.io/apimachinery/pkg/api/resource"
 	utilerrors "k8s.io/apimachinery/pkg/util/errors"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"
@@ -37,10 +36,7 @@ import (
 	"github.com/cert-manager/cert-manager/controller-binary/app/options"
 	cmdutil "github.com/cert-manager/cert-manager/internal/cmd/util"
 	"github.com/cert-manager/cert-manager/internal/controller/feature"
-	"github.com/cert-manager/cert-manager/pkg/acme/accounts"
 	"github.com/cert-manager/cert-manager/pkg/controller"
-	"github.com/cert-manager/cert-manager/pkg/controller/clusterissuers"
-	dnsutil "github.com/cert-manager/cert-manager/pkg/issuer/acme/dns/util"
 	logf "github.com/cert-manager/cert-manager/pkg/logs"
 	"github.com/cert-manager/cert-manager/pkg/metrics"
 	utilfeature "github.com/cert-manager/cert-manager/pkg/util/feature"
@@ -183,12 +179,6 @@ func Run(opts *options.ControllerOptions, stopCh <-chan struct{}) error {
 			continue
 		}
 
-		// don't run clusterissuers controller if scoped to a single namespace
-		if ctx.Namespace != "" && n == clusterissuers.ControllerName {
-			log.V(logf.InfoLevel).Info("not starting controller as cert-manager has been scoped to a single namespace")
-			continue
-		}
-
 		iface, err := fn(ctxFactory)
 		if err != nil {
 			err = fmt.Errorf("error starting controller: %v", err)
@@ -231,37 +221,7 @@ func Run(opts *options.ControllerOptions, stopCh <-chan struct{}) error {
 func buildControllerContextFactory(ctx context.Context, opts *options.ControllerOptions) (*controller.ContextFactory, error) {
 	log := logf.FromContext(ctx)
 
-	nameservers := opts.DNS01RecursiveNameservers
-	if len(nameservers) == 0 {
-		nameservers = dnsutil.RecursiveNameservers
-	}
-
-	log.V(logf.InfoLevel).WithName("build-context").
-		WithValues("nameservers", nameservers).
-		Info("configured acme dns01 nameservers")
-
-	http01SolverResourceRequestCPU, err := resource.ParseQuantity(opts.ACMEHTTP01SolverResourceRequestCPU)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing ACMEHTTP01SolverResourceRequestCPU: %w", err)
-	}
-
-	http01SolverResourceRequestMemory, err := resource.ParseQuantity(opts.ACMEHTTP01SolverResourceRequestMemory)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing ACMEHTTP01SolverResourceRequestMemory: %w", err)
-	}
-
-	http01SolverResourceLimitsCPU, err := resource.ParseQuantity(opts.ACMEHTTP01SolverResourceLimitsCPU)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing ACMEHTTP01SolverResourceLimitsCPU: %w", err)
-	}
-
-	http01SolverResourceLimitsMemory, err := resource.ParseQuantity(opts.ACMEHTTP01SolverResourceLimitsMemory)
-	if err != nil {
-		return nil, fmt.Errorf("error parsing ACMEHTTP01SolverResourceLimitsMemory: %w", err)
-	}
-
-	ACMEHTTP01SolverRunAsNonRoot := opts.ACMEHTTP01SolverRunAsNonRoot
-	acmeAccountRegistry := accounts.NewDefaultRegistry()
+	log.V(logf.InfoLevel).WithName("build-context")
 
 	ctxFactory, err := controller.NewContextFactory(ctx, controller.ContextOptions{
 		Kubeconfig:         opts.Kubeconfig,
@@ -274,31 +234,8 @@ func buildControllerContextFactory(ctx context.Context, opts *options.Controller
 		Clock:   clock.RealClock{},
 		Metrics: metrics.New(log, clock.RealClock{}),
 
-		ACMEOptions: controller.ACMEOptions{
-			HTTP01SolverResourceRequestCPU:    http01SolverResourceRequestCPU,
-			HTTP01SolverResourceRequestMemory: http01SolverResourceRequestMemory,
-			HTTP01SolverResourceLimitsCPU:     http01SolverResourceLimitsCPU,
-			HTTP01SolverResourceLimitsMemory:  http01SolverResourceLimitsMemory,
-			ACMEHTTP01SolverRunAsNonRoot:      ACMEHTTP01SolverRunAsNonRoot,
-			HTTP01SolverImage:                 opts.ACMEHTTP01SolverImage,
-			// Allows specifying a list of custom nameservers to perform HTTP01 checks on.
-			HTTP01SolverNameservers: opts.ACMEHTTP01SolverNameservers,
-
-			DNS01Nameservers:        nameservers,
-			DNS01CheckRetryPeriod:   opts.DNS01CheckRetryPeriod,
-			DNS01CheckAuthoritative: !opts.DNS01RecursiveNameserversOnly,
-
-			AccountRegistry: acmeAccountRegistry,
-		},
-
 		SchedulerOptions: controller.SchedulerOptions{
 			MaxConcurrentChallenges: opts.MaxConcurrentChallenges,
-		},
-
-		IssuerOptions: controller.IssuerOptions{
-			ClusterIssuerAmbientCredentials: opts.ClusterIssuerAmbientCredentials,
-			IssuerAmbientCredentials:        opts.IssuerAmbientCredentials,
-			ClusterResourceNamespace:        opts.ClusterResourceNamespace,
 		},
 
 		IngressShimOptions: controller.IngressShimOptions{

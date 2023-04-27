@@ -107,6 +107,40 @@ Create the name of the service account to use
 {{- end -}}
 
 {{/*
+core-issuers templates
+*/}}
+
+{{/*
+Expand the name of the chart.
+Manually fix the 'app' and 'name' labels to 'core-issuers' to maintain
+compatibility with the v0.9 deployment selector.
+*/}}
+{{- define "coreIssuers.name" -}}
+{{- printf "core-issuers" -}}
+{{- end -}}
+
+{{/*
+Create a default fully qualified app name.
+We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
+If release name contains chart name it will be used as a full name.
+*/}}
+{{- define "coreIssuers.fullname" -}}
+{{- $trimmedName := printf "%s" (include "cert-manager.fullname" .) | trunc 50 | trimSuffix "-" -}}
+{{- printf "%s-core-issuers" $trimmedName | trunc 63 | trimSuffix "-" -}}
+{{- end -}}
+
+{{/*
+Create the name of the service account to use
+*/}}
+{{- define "coreIssuers.serviceAccountName" -}}
+{{- if .Values.coreIssuers.serviceAccount.create -}}
+    {{ default (include "coreIssuers.fullname" .) .Values.coreIssuers.serviceAccount.name }}
+{{- else -}}
+    {{ default "default" .Values.coreIssuers.serviceAccount.name }}
+{{- end -}}
+{{- end -}}
+
+{{/*
 startupapicheck templates
 */}}
 
