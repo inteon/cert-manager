@@ -4,6 +4,7 @@ github.com/cert-manager/cert-manager,https://github.com/cert-manager/cert-manage
 github.com/cert-manager/cert-manager/acmesolver-binary,https://github.com/cert-manager/cert-manager/blob/HEAD/acmesolver-binary/LICENSE,Apache-2.0
 github.com/cespare/xxhash/v2,https://github.com/cespare/xxhash/blob/v2.2.0/LICENSE.txt,MIT
 github.com/go-logr/logr,https://github.com/go-logr/logr/blob/v1.2.3/LICENSE,Apache-2.0
+github.com/go-logr/zapr,https://github.com/go-logr/zapr/blob/v1.2.3/LICENSE,Apache-2.0
 github.com/gogo/protobuf,https://github.com/gogo/protobuf/blob/v1.3.2/LICENSE,BSD-3-Clause
 github.com/golang/protobuf,https://github.com/golang/protobuf/blob/v1.5.2/LICENSE,BSD-3-Clause
 github.com/google/gofuzz,https://github.com/google/gofuzz/blob/v1.2.0/LICENSE,Apache-2.0
@@ -18,6 +19,9 @@ github.com/prometheus/common/internal/bitbucket.org/ww/goautoneg,https://github.
 github.com/prometheus/procfs,https://github.com/prometheus/procfs/blob/v0.8.0/LICENSE,Apache-2.0
 github.com/spf13/cobra,https://github.com/spf13/cobra/blob/v1.6.1/LICENSE.txt,Apache-2.0
 github.com/spf13/pflag,https://github.com/spf13/pflag/blob/v1.0.5/LICENSE,BSD-3-Clause
+go.uber.org/atomic,https://github.com/uber-go/atomic/blob/v1.9.0/LICENSE.txt,MIT
+go.uber.org/multierr,https://github.com/uber-go/multierr/blob/v1.6.0/LICENSE.txt,MIT
+go.uber.org/zap,https://github.com/uber-go/zap/blob/v1.24.0/LICENSE.txt,MIT
 golang.org/x/net,https://cs.opensource.google/go/x/net/+/v0.7.0:LICENSE,BSD-3-Clause
 golang.org/x/sys/unix,https://cs.opensource.google/go/x/sys/+/v0.5.0:LICENSE,BSD-3-Clause
 golang.org/x/text,https://cs.opensource.google/go/x/text/+/v0.7.0:LICENSE,BSD-3-Clause
