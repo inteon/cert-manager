@@ -153,10 +153,12 @@ func (t *validatingWebhookTarget) AsApplyObject() (client.Object, client.Patch) 
 	patch := applyadmissionreg.ValidatingWebhookConfiguration(t.obj.Name)
 
 	for i := range t.obj.Webhooks {
+		// The Patch below does not contain the Name slice key, because it is not
+		// needed since we are patching each element in the slice with an identical
+		// CA bundle.
 		patch = patch.WithWebhooks(
 			applyadmissionreg.
 				ValidatingWebhook().
-				WithName(t.obj.Webhooks[i].Name). // Name is used as slice key.
 				WithClientConfig(
 					&applyadmissionreg.WebhookClientConfigApplyConfiguration{
 						CABundle: t.obj.Webhooks[i].ClientConfig.CABundle,
@@ -252,6 +254,10 @@ type customResourceWebhookClientConfigPatch struct {
 }
 
 func (t *crdConversionTarget) AsApplyObject() (client.Object, client.Patch) {
+	if t.obj.Spec.Conversion == nil || t.obj.Spec.Conversion.Webhook == nil || t.obj.Spec.Conversion.Webhook.ClientConfig == nil {
+		return &t.obj, nil
+	}
+
 	return &t.obj, newSSAPatch(&customResourceDefinitionPatch{
 		TypeMetaApplyConfiguration: *applymetav1.
 			TypeMeta().
