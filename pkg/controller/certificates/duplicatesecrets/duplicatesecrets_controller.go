@@ -105,6 +105,12 @@ func (c *controller) ProcessItem(ctx context.Context, key string) error {
 	log = logf.WithResource(log, crt)
 	ctx = logf.NewContext(ctx, log)
 
+	oldDuplicates := []string{}
+	if condition := apiutil.GetCertificateCondition(crt, cmapi.CertificateConditionDuplicateSecretName); condition != nil &&
+		condition.Status == cmmeta.ConditionTrue {
+		oldDuplicates = strings.Split(condition.Reason, ",")
+	}
+
 	// Get the Certificates in the same Namespace which have the same Secret name
 	// set.
 	duplicates, err := internalcertificates.DuplicateCertificateSecretNames(ctx, c.certificateLister, crt)
@@ -138,6 +144,10 @@ func (c *controller) ProcessItem(ctx context.Context, key string) error {
 
 	// We also need to re-reconcile all other Certificates which have the same
 	// Secret name set so their conditions can be evaluated.
+	for _, duplicate := range oldDuplicates {
+		c.queue.Add(crt.Namespace + "/" + duplicate)
+	}
+
 	for _, duplicate := range duplicates {
 		c.queue.Add(crt.Namespace + "/" + duplicate)
 	}

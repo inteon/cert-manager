@@ -167,7 +167,33 @@ func SecretIssuerAnnotationsNotUpToDate(input Input) (string, string, bool) {
 }
 
 func CurrentCertificateRequestNotValidForSpec(input Input) (string, string, bool) {
-	if input.CurrentRevisionRequest == nil {
+	// If the current revision of the CertificateRequest does not have a public key
+	// that matches the private key in the Secret, we ignore CurrentRevisionRequest.
+	canUseCurrentRevisionRequest := func() bool {
+		if input.CurrentRevisionRequest == nil {
+			return false
+		}
+
+		csr, err := pki.DecodeX509CertificateRequestBytes(input.CurrentRevisionRequest.Spec.Request)
+		if err != nil {
+			return false
+		}
+
+		pkBytes := input.Secret.Data[corev1.TLSPrivateKeyKey]
+		pk, err := pki.DecodePrivateKeyBytes(pkBytes)
+		if err != nil {
+			return false
+		}
+
+		equal, err := pki.PublicKeysEqual(csr.PublicKey, pk.Public())
+		if !equal || err != nil {
+			return false
+		}
+
+		return true
+	}()
+
+	if !canUseCurrentRevisionRequest {
 		// Fallback to comparing the Certificate spec with the issued certificate.
 		// This case is encountered if the CertificateRequest that issued the current
 		// Secret is not available (most likely due to it being deleted).
