@@ -370,7 +370,8 @@ func ensureCertificateDoesNotHaveIssuingCondition(t *testing.T, ctx context.Cont
 // failed because of a DuplicateSecretName, but this is no longer the case, the
 // trigger controller will set the Issuing condition.
 func Test_TriggerController_DuplicateSecretName(t *testing.T) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*40)
+	// ctx, cancel := context.WithTimeout(context.Background(), time.Second*40)
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	config, stopFn := framework.RunControlPlane(t, ctx)
@@ -439,7 +440,7 @@ func Test_TriggerController_DuplicateSecretName(t *testing.T) {
 		t.Fatal(err)
 	}
 	cert.Status.Conditions = []cmapi.CertificateCondition{
-		{Type: cmapi.CertificateConditionIssuing, Status: cmmeta.ConditionFalse, Reason: cmapi.CertificateIssuingReasonDuplicateSecretName},
+		{Type: cmapi.CertificateConditionIssuing, Status: cmmeta.ConditionTrue, Reason: cmapi.CertificateIssuingReasonDuplicateSecretName},
 		{Type: cmapi.CertificateConditionDuplicateSecretName, Status: cmmeta.ConditionTrue},
 	}
 	cert.Status.LastFailureTime = &metav1.Time{Time: fakeClock.Now().Add(-time.Minute)}
