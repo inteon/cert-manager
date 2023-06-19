@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/url"
 	"strings"
 	"time"
 
@@ -434,11 +435,30 @@ func (o *ControllerOptions) Validate() error {
 		return fmt.Errorf("invalid value for kube-api-burst: %v must be higher or equal to kube-api-qps: %v", o.KubernetesAPIQPS, o.KubernetesAPIQPS)
 	}
 
-	for _, server := range append(o.DNS01RecursiveNameservers, o.ACMEHTTP01SolverNameservers...) {
+	for _, server := range o.ACMEHTTP01SolverNameservers {
 		// ensure all servers have a port number
 		_, _, err := net.SplitHostPort(server)
 		if err != nil {
 			return fmt.Errorf("invalid DNS server (%v): %v", err, server)
+		}
+	}
+
+	for _, server := range o.DNS01RecursiveNameservers {
+		// ensure all servers follow one of the following formats:
+		// - <ip address>:<port>
+		// - https://<DoH RFC 8484 server address>
+		// - tls://<DoT RFC 7858 server address>
+
+		if strings.HasPrefix(server, "https://") || strings.HasPrefix(server, "tls://") {
+			_, err := url.ParseRequestURI(server)
+			if err != nil {
+				return fmt.Errorf("invalid DNS server (%v): %v", err, server)
+			}
+		} else {
+			_, _, err := net.SplitHostPort(server)
+			if err != nil {
+				return fmt.Errorf("invalid DNS server (%v): %v", err, server)
+			}
 		}
 	}
 
