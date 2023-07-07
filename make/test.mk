@@ -131,6 +131,10 @@ $(BINDIR)/test/e2e.test: FORCE | $(NEEDS_GINKGO) $(BINDIR)/test
 	CGO_ENABLED=0 $(GINKGO) build --ldflags="-w -s" --trimpath --tags e2e_test test/e2e
 	mv test/e2e/e2e.test $(BINDIR)/test/e2e.test
 
+$(BINDIR)/test/issuerconformance.test: FORCE | $(NEEDS_GINKGO) $(BINDIR)/test
+	$(GINKGO) build --tags issuerconformance_test test/issuerconformance
+	mv test/issuerconformance/issuerconformance.test $(BINDIR)/test/issuerconformance.test
+
 .PHONY: e2e-build
 ## Build an end-to-end test binary
 ##
@@ -153,7 +157,7 @@ $(BINDIR)/test/e2e.test: FORCE | $(NEEDS_GINKGO) $(BINDIR)/test
 ##  ./_bin/test/e2e.test --repo-root=/dev/null --ginkgo.focus="CA\ Issuer" --ginkgo.skip="Gateway"
 ##
 ## @category Development
-e2e-build: $(BINDIR)/test/e2e.test
+e2e-build: $(BINDIR)/test/e2e.test $(BINDIR)/test/issuerconformance.test
 
 .PHONY: test-upgrade
 test-upgrade: | $(NEEDS_HELM) $(NEEDS_KIND) $(NEEDS_YTT) $(NEEDS_KUBECTL) $(BINDIR)/cmctl/cmctl-$(HOST_OS)-$(HOST_ARCH)

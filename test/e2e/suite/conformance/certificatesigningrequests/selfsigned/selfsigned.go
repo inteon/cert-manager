@@ -28,30 +28,56 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"issuerconformance/certificatesigningrequests"
+
 	"github.com/cert-manager/cert-manager/e2e-tests/framework"
-	"github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests"
 	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	experimentalapi "github.com/cert-manager/cert-manager/pkg/apis/experimental/v1alpha1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 	"github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/util"
 	"github.com/cert-manager/cert-manager/pkg/util/pki"
 )
 
 var _ = framework.ConformanceDescribe("CertificateSigningRequests", func() {
-	(&certificatesigningrequests.Suite{
-		Name:             "SelfSigned Issuer",
-		CreateIssuerFunc: createSelfSignedIssuer,
-		ProvisionFunc:    provision,
-		DeProvisionFunc:  deProvision,
-	}).Define()
+	frwork := framework.NewDefaultFramework("selfsigned-certificates")
 
-	(&certificatesigningrequests.Suite{
-		Name:             "SelfSigned ClusterIssuer",
-		CreateIssuerFunc: createSelfSignedClusterIssuer,
-		DeleteIssuerFunc: deleteSelfSignedClusterIssuer,
-		ProvisionFunc:    provision,
-		DeProvisionFunc:  deProvision,
-	}).Define()
+	{
+		issuer := new(selfsigned)
+		(&certificatesigningrequests.Suite{
+			Name: "SelfSigned Issuer",
+			CompleteHook: func(ctx context.Context, s *certificatesigningrequests.Suite) {
+				s.KubeClientConfig = frwork.KubeClientConfig
+				issuer.createIssuer(ctx, frwork)
+				s.SignerName = issuer.SignerName
+
+				DeferCleanup(func(ctx context.Context) {
+					issuer.deleteIssuer(ctx, frwork)
+				})
+			},
+		}).Define()
+	}
+
+	{
+		issuer := new(selfsigned)
+		(&certificatesigningrequests.Suite{
+			Name: "SelfSigned ClusterIssuer",
+			CompleteHook: func(ctx context.Context, s *certificatesigningrequests.Suite) {
+				s.KubeClientConfig = frwork.KubeClientConfig
+				issuer.createClusterIssuer(ctx, frwork)
+				s.SignerName = issuer.SignerName
+
+				DeferCleanup(func(ctx context.Context) {
+					issuer.deleteClusterIssuer(ctx, frwork)
+				})
+			},
+		}).Define()
+	}
 })
+
+type selfsigned struct {
+	IssuerRef  cmmeta.ObjectReference
+	SignerName string
+}
 
 func provision(f *framework.Framework, csr *certificatesv1.CertificateSigningRequest, key crypto.Signer) {
 	By("Creating SelfSigned requester key Secret")
@@ -92,18 +118,14 @@ func deProvision(f *framework.Framework, csr *certificatesv1.CertificateSigningR
 	Expect(err).NotTo(HaveOccurred(), "failed to create requester's private key Secret")
 }
 
-func createSelfSignedIssuer(f *framework.Framework) string {
+func (c *selfsigned) createIssuer(ctx context.Context, f *framework.Framework) {
 	By("Creating a SelfSigned Issuer")
 
-	issuer, err := f.CertManagerClientSet.CertmanagerV1().Issuers(f.Namespace.Name).Create(context.TODO(), &cmapi.Issuer{
+	issuer, err := f.CertManagerClientSet.CertmanagerV1().Issuers(f.Namespace.Name).Create(ctx, &cmapi.Issuer{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "selfsigned-issuer-",
 		},
-		Spec: cmapi.IssuerSpec{
-			IssuerConfig: cmapi.IssuerConfig{
-				SelfSigned: &cmapi.SelfSignedIssuer{},
-			},
-		},
+		Spec: createSelfSignedIssuerSpec(),
 	}, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred(), "failed to create self signed issuer")
 
@@ -112,21 +134,29 @@ func createSelfSignedIssuer(f *framework.Framework) string {
 	issuer, err = f.Helper().WaitIssuerReady(issuer, time.Minute*5)
 	Expect(err).ToNot(HaveOccurred())
 
-	return fmt.Sprintf("issuers.cert-manager.io/%s.%s", f.Namespace.Name, issuer.Name)
+	c.IssuerRef = cmmeta.ObjectReference{
+		Group: cmapi.SchemeGroupVersion.Group,
+		Kind:  cmapi.IssuerKind,
+		Name:  issuer.Name,
+	}
+	c.SignerName = fmt.Sprintf("issuers.cert-manager.io/%s.%s", f.Namespace.Name, issuer.Name)
 }
 
-func createSelfSignedClusterIssuer(f *framework.Framework) string {
+func (c *selfsigned) deleteIssuer(ctx context.Context, f *framework.Framework) {
+	By("Deleting SelfSigned Issuer")
+
+	err := f.CertManagerClientSet.CertmanagerV1().Issuers(f.Namespace.Name).Delete(ctx, c.IssuerRef.Name, metav1.DeleteOptions{})
+	Expect(err).NotTo(HaveOccurred(), "failed to delete ca issuer")
+}
+
+func (c *selfsigned) createClusterIssuer(ctx context.Context, f *framework.Framework) {
 	By("Creating a SelfSigned ClusterIssuer")
 
-	issuer, err := f.CertManagerClientSet.CertmanagerV1().ClusterIssuers().Create(context.TODO(), &cmapi.ClusterIssuer{
+	issuer, err := f.CertManagerClientSet.CertmanagerV1().ClusterIssuers().Create(ctx, &cmapi.ClusterIssuer{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "selfsigned-cluster-issuer-",
 		},
-		Spec: cmapi.IssuerSpec{
-			IssuerConfig: cmapi.IssuerConfig{
-				SelfSigned: &cmapi.SelfSignedIssuer{},
-			},
-		},
+		Spec: createSelfSignedIssuerSpec(),
 	}, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred(), "failed to create self signed issuer")
 
@@ -135,11 +165,23 @@ func createSelfSignedClusterIssuer(f *framework.Framework) string {
 	issuer, err = f.Helper().WaitClusterIssuerReady(issuer, time.Minute*5)
 	Expect(err).ToNot(HaveOccurred())
 
-	return fmt.Sprintf("clusterissuers.cert-manager.io/%s", issuer.Name)
+	c.IssuerRef = cmmeta.ObjectReference{
+		Group: cmapi.SchemeGroupVersion.Group,
+		Kind:  cmapi.ClusterIssuerKind,
+		Name:  issuer.Name,
+	}
+	c.SignerName = fmt.Sprintf("clusterissuers.cert-manager.io/%s", issuer.Name)
 }
 
-func deleteSelfSignedClusterIssuer(f *framework.Framework, signerName string) {
-	ref, _ := util.SignerIssuerRefFromSignerName(signerName)
-	err := f.CertManagerClientSet.CertmanagerV1().ClusterIssuers().Delete(context.TODO(), ref.Name, metav1.DeleteOptions{})
+func (c *selfsigned) deleteClusterIssuer(ctx context.Context, f *framework.Framework) {
+	err := f.CertManagerClientSet.CertmanagerV1().ClusterIssuers().Delete(ctx, c.IssuerRef.Name, metav1.DeleteOptions{})
 	Expect(err).NotTo(HaveOccurred())
+}
+
+func createSelfSignedIssuerSpec() cmapi.IssuerSpec {
+	return cmapi.IssuerSpec{
+		IssuerConfig: cmapi.IssuerConfig{
+			SelfSigned: &cmapi.SelfSignedIssuer{},
+		},
+	}
 }

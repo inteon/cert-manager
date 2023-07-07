@@ -25,83 +25,98 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"issuerconformance/certificatesigningrequests"
+	"issuerconformance/framework/helper/featureset"
+
 	"github.com/cert-manager/cert-manager/e2e-tests/framework"
 	"github.com/cert-manager/cert-manager/e2e-tests/framework/addon/venafi"
-	"github.com/cert-manager/cert-manager/e2e-tests/framework/helper/featureset"
 	"github.com/cert-manager/cert-manager/e2e-tests/framework/util/errors"
-	"github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests"
-	"github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/util"
+	cmapi "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	cmutil "github.com/cert-manager/cert-manager/pkg/util"
 )
 
 var _ = framework.ConformanceDescribe("CertificateSigningRequests", func() {
+	frwork := framework.NewDefaultFramework("venafi-certificates")
+
 	// unsupportedFeatures is a list of features that are not supported by the
-	// Venafi TPP issuer.
+	// Venafi Cloud issuer.
 	var unsupportedFeatures = featureset.NewFeatureSet(
-		// Venafi TPP doesn't allow setting a duration
+		// Venafi Cloud does not allow setting duration in request
 		featureset.DurationFeature,
-		// Due to the current configuration of the test environment, it does not
-		// support signing certificates that pair with an elliptic curve or
-		// Ed255119 private keys
+		// Venafi Cloud has no ECDSA support
 		featureset.ECDSAFeature,
-		featureset.Ed25519FeatureSet,
-		// Our Venafi TPP doesn't allow setting non DNS SANs
-		// TODO: investigate options to enable these
+		// Alternate SANS are currently not supported in Venafi Cloud
 		featureset.EmailSANsFeature,
-		featureset.URISANsFeature,
 		featureset.IPAddressFeature,
+		featureset.URISANsFeature,
 		// Venafi doesn't allow certs with empty CN & DN
 		featureset.OnlySAN,
-		// Venafi doesn't setting key usages.
-		featureset.KeyUsagesFeature,
+		// Venafi seems to only support SSH Ed25519 keys
+		featureset.Ed25519FeatureSet,
+		featureset.IssueCAFeature,
+		featureset.LiteralSubjectFeature,
 	)
 
-	venafiIssuer := new(cloud)
-	(&certificatesigningrequests.Suite{
-		Name:                "Venafi Cloud Issuer",
-		CreateIssuerFunc:    venafiIssuer.createIssuer,
-		DeleteIssuerFunc:    venafiIssuer.delete,
-		UnsupportedFeatures: unsupportedFeatures,
-	}).Define()
+	{
+		issuer := new(vaasProvisioner)
+		(&certificatesigningrequests.Suite{
+			Name: "Venafi VaaS Issuer",
+			CompleteHook: func(ctx context.Context, s *certificatesigningrequests.Suite) {
+				s.KubeClientConfig = frwork.KubeClientConfig
+				issuer.createIssuer(ctx, frwork)
+				s.SignerName = issuer.SignerName
 
-	venafiClusterIssuer := new(cloud)
-	(&certificatesigningrequests.Suite{
-		Name:                "Venafi Cloud Cluster Issuer",
-		CreateIssuerFunc:    venafiClusterIssuer.createClusterIssuer,
-		DeleteIssuerFunc:    venafiClusterIssuer.delete,
-		UnsupportedFeatures: unsupportedFeatures,
-	}).Define()
+				DeferCleanup(func(ctx context.Context) {
+					issuer.deleteIssuer(ctx, frwork)
+				})
+			},
+			UnsupportedFeatures: unsupportedFeatures,
+			DomainSuffix:        fmt.Sprintf("%s-venafi-e2e", cmutil.RandStringRunes(5)),
+		}).Define()
+	}
+
+	{
+		issuer := new(vaasProvisioner)
+		(&certificatesigningrequests.Suite{
+			Name: "Venafi VaaS Cluster Issuer",
+			CompleteHook: func(ctx context.Context, s *certificatesigningrequests.Suite) {
+				s.KubeClientConfig = frwork.KubeClientConfig
+				issuer.createClusterIssuer(ctx, frwork)
+				s.SignerName = issuer.SignerName
+
+				DeferCleanup(func(ctx context.Context) {
+					issuer.deleteClusterIssuer(ctx, frwork)
+				})
+			},
+			UnsupportedFeatures: unsupportedFeatures,
+			DomainSuffix:        fmt.Sprintf("%s-venafi-e2e", cmutil.RandStringRunes(5)),
+		}).Define()
+	}
 })
 
-type cloud struct {
+type vaasProvisioner struct {
 	*venafi.VenafiCloud
+	IssuerRef  cmmeta.ObjectReference
+	SignerName string
 }
 
-func (c *cloud) delete(f *framework.Framework, signerName string) {
-	Expect(c.Deprovision()).NotTo(HaveOccurred(), "failed to deprovision cloud venafi")
+func (v *vaasProvisioner) createIssuer(ctx context.Context, f *framework.Framework) {
+	By("Creating a Venafi Issuer")
 
-	ref, _ := util.SignerIssuerRefFromSignerName(signerName)
-	if ref.Type == "clusterissuers" {
-		err := f.CertManagerClientSet.CertmanagerV1().ClusterIssuers().Delete(context.TODO(), ref.Name, metav1.DeleteOptions{})
-		Expect(err).NotTo(HaveOccurred())
-	}
-}
-
-func (c *cloud) createIssuer(f *framework.Framework) string {
-	By("Creating a Venafi Cloud Issuer")
-
-	c.VenafiCloud = &venafi.VenafiCloud{
+	v.VenafiCloud = &venafi.VenafiCloud{
 		Namespace: f.Namespace.Name,
 	}
 
-	_, err := c.Setup(f.Config)
+	_, err := v.Setup(f.Config)
 	if errors.IsSkip(err) {
 		framework.Skipf("Skipping test as addon could not be setup: %v", err)
 	}
 	Expect(err).NotTo(HaveOccurred(), "failed to provision venafi cloud issuer")
 
-	Expect(c.Provision()).NotTo(HaveOccurred(), "failed to provision tpp venafi")
+	Expect(v.Provision()).NotTo(HaveOccurred(), "failed to provision tpp venafi")
 
-	issuer := c.Details().BuildIssuer()
+	issuer := v.Details().BuildIssuer()
 	issuer, err = f.CertManagerClientSet.CertmanagerV1().Issuers(f.Namespace.Name).Create(context.TODO(), issuer, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred(), "failed to create issuer for venafi")
 
@@ -110,28 +125,37 @@ func (c *cloud) createIssuer(f *framework.Framework) string {
 	issuer, err = f.Helper().WaitIssuerReady(issuer, time.Minute*5)
 	Expect(err).ToNot(HaveOccurred())
 
-	return fmt.Sprintf("issuers.cert-manager.io/%s.%s", issuer.Namespace, issuer.Name)
+	v.IssuerRef = cmmeta.ObjectReference{
+		Group: cmapi.SchemeGroupVersion.Group,
+		Kind:  cmapi.IssuerKind,
+		Name:  issuer.Name,
+	}
+	v.SignerName = fmt.Sprintf("issuers.cert-manager.io/%s.%s", f.Namespace.Name, issuer.Name)
 }
 
-// createClusterIssuer creates and returns name of a Venafi Cloud
-// ClusterIssuer. The name is of the form
-// "clusterissuers.cert-manager.io/issuer-ab3de1".
-func (c *cloud) createClusterIssuer(f *framework.Framework) string {
+func (v *vaasProvisioner) deleteIssuer(ctx context.Context, f *framework.Framework) {
+	Expect(v.Deprovision()).NotTo(HaveOccurred(), "failed to deprovision tpp venafi")
+
+	err := f.CertManagerClientSet.CertmanagerV1().Issuers(f.Namespace.Name).Delete(ctx, v.IssuerRef.Name, metav1.DeleteOptions{})
+	Expect(err).NotTo(HaveOccurred(), "failed to delete tpp issuer")
+}
+
+func (v *vaasProvisioner) createClusterIssuer(ctx context.Context, f *framework.Framework) {
 	By("Creating a Venafi Cloud ClusterIssuer")
 
-	c.VenafiCloud = &venafi.VenafiCloud{
+	v.VenafiCloud = &venafi.VenafiCloud{
 		Namespace: f.Config.Addons.CertManager.ClusterResourceNamespace,
 	}
 
-	_, err := c.Setup(f.Config)
+	_, err := v.Setup(f.Config)
 	if errors.IsSkip(err) {
 		framework.Skipf("Skipping test as addon could not be setup: %v", err)
 	}
 	Expect(err).NotTo(HaveOccurred(), "failed to setup tpp venafi")
 
-	Expect(c.Provision()).NotTo(HaveOccurred(), "failed to provision tpp venafi")
+	Expect(v.Provision()).NotTo(HaveOccurred(), "failed to provision tpp venafi")
 
-	issuer := c.Details().BuildClusterIssuer()
+	issuer := v.Details().BuildClusterIssuer()
 	issuer, err = f.CertManagerClientSet.CertmanagerV1().ClusterIssuers().Create(context.TODO(), issuer, metav1.CreateOptions{})
 	Expect(err).NotTo(HaveOccurred(), "failed to create issuer for venafi")
 
@@ -140,5 +164,17 @@ func (c *cloud) createClusterIssuer(f *framework.Framework) string {
 	issuer, err = f.Helper().WaitClusterIssuerReady(issuer, time.Minute*5)
 	Expect(err).ToNot(HaveOccurred())
 
-	return fmt.Sprintf("clusterissuers.cert-manager.io/%s", issuer.Name)
+	v.IssuerRef = cmmeta.ObjectReference{
+		Group: cmapi.SchemeGroupVersion.Group,
+		Kind:  cmapi.ClusterIssuerKind,
+		Name:  issuer.Name,
+	}
+	v.SignerName = fmt.Sprintf("clusterissuers.cert-manager.io/%s", issuer.Name)
+}
+
+func (v *vaasProvisioner) deleteClusterIssuer(ctx context.Context, f *framework.Framework) {
+	Expect(v.Deprovision()).NotTo(HaveOccurred(), "failed to deprovision tpp venafi")
+
+	err := f.CertManagerClientSet.CertmanagerV1().ClusterIssuers().Delete(ctx, v.IssuerRef.Name, metav1.DeleteOptions{})
+	Expect(err).NotTo(HaveOccurred(), "failed to delete ca issuer")
 }

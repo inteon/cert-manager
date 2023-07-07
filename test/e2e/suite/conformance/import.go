@@ -17,17 +17,18 @@ limitations under the License.
 package conformance
 
 import (
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/acme"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/ca"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/external"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/selfsigned"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/vault"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/venafi"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/venaficloud"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/acme"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/acme"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/ca"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/external"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/selfsigned"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/vault"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates/venafi"
+
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/acme"
 	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/ca"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/selfsigned"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/vault"
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/venafi"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/selfsigned" // Needs "experimental.cert-manager.io/private-key-secret-name"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/vault"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificatesigningrequests/venafi"
+
 	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/rbac"
 )

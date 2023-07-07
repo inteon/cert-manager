@@ -194,7 +194,6 @@ trace ginkgo \
   --flake-attempts="$flake_attempts" \
   --timeout="1h" \
   $ginkgo_color \
-  -v \
   --randomize-all \
   --trace \
   --poll-progress-after=60s \

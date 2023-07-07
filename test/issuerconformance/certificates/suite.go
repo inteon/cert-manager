@@ -17,32 +17,36 @@ limitations under the License.
 package certificates
 
 import (
-	. "github.com/onsi/ginkgo/v2"
+	"context"
 
-	"github.com/cert-manager/cert-manager/e2e-tests/framework"
-	"github.com/cert-manager/cert-manager/e2e-tests/framework/helper/featureset"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+
+	"issuerconformance/framework"
+	"issuerconformance/framework/helper/featureset"
+
+	. "github.com/onsi/ginkgo/v2"
 )
 
 // Suite defines a reusable conformance test suite that can be used against any
 // Issuer implementation.
 type Suite struct {
+	// KubeClientConfig is the configuration used to connect to the Kubernetes
+	// API server.
+	KubeClientConfig *rest.Config
+
 	// Name is the name of the issuer being tested, e.g. SelfSigned, CA, ACME
 	// This field must be provided.
 	Name string
 
-	// CreateIssuerFunc is a function that provisions a new issuer resource and
-	// returns an ObjectReference to that Issuer that will be used as the
-	// IssuerRef on Certificate resources that this suite creates.
-	// This field must be provided.
-	CreateIssuerFunc func(*framework.Framework) cmmeta.ObjectReference
+	// IssuerRef is reference to the issuer resource that this test suite will
+	// test against. All Certificate resources created by this suite will be
+	// created with this issuer reference.
+	IssuerRef cmmeta.ObjectReference
 
-	// DeleteIssuerFunc is a function that is run after the test has completed
-	// in order to clean up resources created for a test (e.g. the resources
-	// created in CreateIssuerFunc).
-	// This function will be run regardless whether the test passes or fails.
-	// If not specified, this function will be skipped.
-	DeleteIssuerFunc func(*framework.Framework, cmmeta.ObjectReference)
+	// Namespace is the namespace in which the Certificate resources will be
+	// created.
+	Namespace string
 
 	// DomainSuffix is a suffix used on all domain requests.
 	// This is useful when the issuer being tested requires special
@@ -52,63 +56,57 @@ type Suite struct {
 	// nginx-ingress addon.
 	DomainSuffix string
 
-	// HTTP01TestType is set to "Ingress" or "Gateway" to determine which IPs
-	// and Domains will be used to run the ACME HTTP-01 test suites.
-	HTTP01TestType string
-
 	// UnsupportedFeatures is a list of features that are not supported by this
 	// invocation of the test suite.
 	// This is useful if a particular issuers explicitly does not support
 	// certain features due to restrictions in their implementation.
 	UnsupportedFeatures featureset.FeatureSet
 
-	// completed is used internally to track whether Complete() has been called
-	completed bool
+	CompleteHook func(context.Context, *Suite)
 }
 
 // complete will validate configuration and set default values.
-func (s *Suite) complete(f *framework.Framework) {
+func (s *Suite) complete(ctx context.Context, f *framework.Framework) {
+	if s.CompleteHook != nil {
+		s.CompleteHook(ctx, s)
+	}
+
+	if s.KubeClientConfig == nil {
+		Fail("KubeClientConfig must be set")
+	}
+
+	f.KubeClientConfig = s.KubeClientConfig
+
 	if s.Name == "" {
 		Fail("Name must be set")
 	}
 
-	if s.CreateIssuerFunc == nil {
-		Fail("CreateIssuerFunc must be set")
+	if s.IssuerRef != (cmmeta.ObjectReference{}) && s.IssuerRef.Name == "" {
+		Fail("IssuerRef must be set")
 	}
 
+	if s.Namespace == "" {
+		Fail("Namespace must be set")
+	}
+
+	f.Namespace = s.Namespace
+
 	if s.DomainSuffix == "" {
-		switch s.HTTP01TestType {
-		case "Ingress":
-			s.DomainSuffix = f.Config.Addons.IngressController.Domain
-		case "Gateway":
-			s.DomainSuffix = f.Config.Addons.Gateway.Domain
-		default:
-			s.DomainSuffix = "example.com"
-		}
+		s.DomainSuffix = "example.com"
 	}
 
 	if s.UnsupportedFeatures == nil {
 		s.UnsupportedFeatures = make(featureset.FeatureSet)
 	}
-
-	s.completed = true
 }
 
 // it is called by the tests to in Define() to setup and run the test
-func (s *Suite) it(f *framework.Framework, name string, fn func(cmmeta.ObjectReference), requiredFeatures ...featureset.Feature) {
+func (s *Suite) it(f *framework.Framework, name string, fn func(context.Context, cmmeta.ObjectReference), requiredFeatures ...featureset.Feature) {
 	if !s.checkFeatures(requiredFeatures...) {
 		return
 	}
-	It(name, func() {
-		By("Creating an issuer resource")
-		issuerRef := s.CreateIssuerFunc(f)
-		defer func() {
-			if s.DeleteIssuerFunc != nil {
-				By("Cleaning up the issuer resource")
-				s.DeleteIssuerFunc(f, issuerRef)
-			}
-		}()
-		fn(issuerRef)
+	It(name, func(ctx context.Context) {
+		fn(ctx, s.IssuerRef)
 	})
 }
 
@@ -117,15 +115,11 @@ func (s *Suite) it(f *framework.Framework, name string, fn func(cmmeta.ObjectRef
 // It will return 'true' if all features are supported and the test should run,
 // or return 'false' if any required feature is not supported.
 func (s *Suite) checkFeatures(fs ...featureset.Feature) bool {
-	unsupported := make(featureset.FeatureSet)
 	for _, f := range fs {
 		if s.UnsupportedFeatures.Contains(f) {
-			unsupported.Add(f)
+			return false
 		}
 	}
-	// all features supported, return early!
-	if len(unsupported) == 0 {
-		return true
-	}
-	return false
+
+	return true
 }

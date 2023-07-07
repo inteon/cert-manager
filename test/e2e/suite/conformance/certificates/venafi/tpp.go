@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The cert-manager Authors.
+Copyright 2020 The cert-manager Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 	. "github.com/onsi/gomega"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
-	"issuerconformance/certificatesigningrequests"
+	"issuerconformance/certificates"
 	"issuerconformance/framework/helper/featureset"
 
 	"github.com/cert-manager/cert-manager/e2e-tests/framework"
@@ -36,9 +36,8 @@ import (
 	cmutil "github.com/cert-manager/cert-manager/pkg/util"
 )
 
-var _ = framework.ConformanceDescribe("CertificateSigningRequests", func() {
+var _ = framework.ConformanceDescribe("Certificates", func() {
 	frwork := framework.NewDefaultFramework("venafi-certificates")
-
 	// unsupportedFeatures is a list of features that are not supported by the
 	// Venafi TPP issuer.
 	var unsupportedFeatures = featureset.NewFeatureSet(
@@ -60,12 +59,13 @@ var _ = framework.ConformanceDescribe("CertificateSigningRequests", func() {
 
 	{
 		issuer := new(tppProvisioner)
-		(&certificatesigningrequests.Suite{
+		(&certificates.Suite{
 			Name: "Venafi TPP Issuer",
-			CompleteHook: func(ctx context.Context, s *certificatesigningrequests.Suite) {
+			CompleteHook: func(ctx context.Context, s *certificates.Suite) {
 				s.KubeClientConfig = frwork.KubeClientConfig
+				s.Namespace = frwork.Namespace.Name
 				issuer.createIssuer(ctx, frwork)
-				s.SignerName = issuer.SignerName
+				s.IssuerRef = issuer.IssuerRef
 
 				DeferCleanup(func(ctx context.Context) {
 					issuer.deleteIssuer(ctx, frwork)
@@ -78,15 +78,16 @@ var _ = framework.ConformanceDescribe("CertificateSigningRequests", func() {
 
 	{
 		issuer := new(tppProvisioner)
-		(&certificatesigningrequests.Suite{
+		(&certificates.Suite{
 			Name: "Venafi TPP ClusterIssuer",
-			CompleteHook: func(ctx context.Context, s *certificatesigningrequests.Suite) {
+			CompleteHook: func(ctx context.Context, s *certificates.Suite) {
 				s.KubeClientConfig = frwork.KubeClientConfig
+				s.Namespace = frwork.Namespace.Name
 				issuer.createClusterIssuer(ctx, frwork)
-				s.SignerName = issuer.SignerName
+				s.IssuerRef = issuer.IssuerRef
 
 				DeferCleanup(func(ctx context.Context) {
-					issuer.deleteClusterIssuer(ctx, frwork)
+					issuer.deleteIssuer(ctx, frwork)
 				})
 			},
 			UnsupportedFeatures: unsupportedFeatures,

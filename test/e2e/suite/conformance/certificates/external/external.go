@@ -1,5 +1,5 @@
 /*
-Copyright 2021 The cert-manager Authors.
+Copyright 2023 The cert-manager Authors.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/types"
-	crtclient "sigs.k8s.io/controller-runtime/pkg/client"
+
+	"issuerconformance/certificates"
+	"issuerconformance/framework/helper/featureset"
 
 	"github.com/cert-manager/cert-manager/e2e-tests/framework"
-	"github.com/cert-manager/cert-manager/e2e-tests/framework/helper/featureset"
-	"github.com/cert-manager/cert-manager/e2e-tests/suite/conformance/certificates"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
 )
 
@@ -39,6 +39,8 @@ const (
 )
 
 var _ = framework.ConformanceDescribe("Certificates", func() {
+	frwork := framework.NewDefaultFramework("ca-certificates")
+
 	unsupportedFeatures := featureset.NewFeatureSet(
 		featureset.DurationFeature,
 		featureset.KeyUsagesFeature,
@@ -48,30 +50,53 @@ var _ = framework.ConformanceDescribe("Certificates", func() {
 		featureset.LiteralSubjectFeature,
 	)
 
-	issuerBuilder := newIssuerBuilder("Issuer")
-	(&certificates.Suite{
-		Name:                "External Issuer",
-		CreateIssuerFunc:    issuerBuilder.create,
-		UnsupportedFeatures: unsupportedFeatures,
-	}).Define()
+	{
+		issuer := newIssuerBuilder("Issuer", false)
+		(&certificates.Suite{
+			Name: "External Issuer",
+			CompleteHook: func(ctx context.Context, s *certificates.Suite) {
+				s.KubeClientConfig = frwork.KubeClientConfig
+				s.Namespace = frwork.Namespace.Name
+				issuer.createIssuer(ctx, frwork)
+				s.IssuerRef = issuer.IssuerRef
 
-	clusterIssuerBuilder := newIssuerBuilder("ClusterIssuer")
-	(&certificates.Suite{
-		Name:                "External ClusterIssuer",
-		CreateIssuerFunc:    clusterIssuerBuilder.create,
-		DeleteIssuerFunc:    clusterIssuerBuilder.delete,
-		UnsupportedFeatures: unsupportedFeatures,
-	}).Define()
+				DeferCleanup(func(ctx context.Context) {
+					issuer.deleteIssuer(ctx, frwork)
+				})
+			},
+			UnsupportedFeatures: unsupportedFeatures,
+		}).Define()
+	}
+
+	{
+		issuer := newIssuerBuilder("ClusterIssuer", true)
+		(&certificates.Suite{
+			Name: "External ClusterIssuer",
+			CompleteHook: func(ctx context.Context, s *certificates.Suite) {
+				s.KubeClientConfig = frwork.KubeClientConfig
+				s.Namespace = frwork.Namespace.Name
+				issuer.createIssuer(ctx, frwork)
+				s.IssuerRef = issuer.IssuerRef
+
+				DeferCleanup(func(ctx context.Context) {
+					issuer.deleteIssuer(ctx, frwork)
+				})
+			},
+			UnsupportedFeatures: unsupportedFeatures,
+		}).Define()
+	}
 })
 
 type issuerBuilder struct {
-	clusterResourceNamespace string
-	prototype                *unstructured.Unstructured
+	isClusterIssuer bool
+	prototype       *unstructured.Unstructured
+
+	IssuerRef cmmeta.ObjectReference
 }
 
-func newIssuerBuilder(issuerKind string) *issuerBuilder {
+func newIssuerBuilder(issuerKind string, isClusterIssuer bool) *issuerBuilder {
 	return &issuerBuilder{
-		clusterResourceNamespace: sampleExternalIssuerNamespace,
+		isClusterIssuer: isClusterIssuer,
 		prototype: &unstructured.Unstructured{
 			Object: map[string]interface{}{
 				"apiVersion": "sample-issuer.example.com/v1alpha1",
@@ -86,9 +111,10 @@ func newIssuerBuilder(issuerKind string) *issuerBuilder {
 
 func (o *issuerBuilder) nameForTestObject(f *framework.Framework, suffix string) types.NamespacedName {
 	namespace := f.Namespace.Name
-	if o.prototype.GetKind() == "ClusterIssuer" {
-		namespace = o.clusterResourceNamespace
+	if o.isClusterIssuer {
+		namespace = sampleExternalIssuerNamespace
 	}
+
 	return types.NamespacedName{
 		Name:      fmt.Sprintf("%s-%s", f.Namespace.Name, suffix),
 		Namespace: namespace,
@@ -114,42 +140,34 @@ func (o *issuerBuilder) secretAndIssuerForTest(f *framework.Framework) (*corev1.
 	return secret, issuer, err
 }
 
-func (o *issuerBuilder) create(f *framework.Framework) cmmeta.ObjectReference {
-	ctx := context.TODO()
-
+func (o *issuerBuilder) createIssuer(ctx context.Context, f *framework.Framework) {
 	By("Creating an Issuer")
+
 	secret, issuer, err := o.secretAndIssuerForTest(f)
 	Expect(err).NotTo(HaveOccurred(), "failed to initialise test objects")
 
-	crt, err := crtclient.New(f.KubeClientConfig, crtclient.Options{})
-	Expect(err).NotTo(HaveOccurred(), "failed to create controller-runtime client")
-
-	err = crt.Create(ctx, secret)
+	err = f.CRClient.Create(ctx, secret)
 	Expect(err).NotTo(HaveOccurred(), "failed to create secret")
 
-	err = crt.Create(ctx, issuer)
+	err = f.CRClient.Create(ctx, issuer)
 	Expect(err).NotTo(HaveOccurred(), "failed to create issuer")
 
-	return cmmeta.ObjectReference{
+	o.IssuerRef = cmmeta.ObjectReference{
 		Group: issuer.GroupVersionKind().Group,
 		Kind:  issuer.GroupVersionKind().Kind,
 		Name:  issuer.GetName(),
 	}
 }
 
-func (o *issuerBuilder) delete(f *framework.Framework, _ cmmeta.ObjectReference) {
+func (o *issuerBuilder) deleteIssuer(ctx context.Context, f *framework.Framework) {
 	By("Deleting the issuer")
-	ctx := context.TODO()
-
-	crt, err := crtclient.New(f.KubeClientConfig, crtclient.Options{})
-	Expect(err).NotTo(HaveOccurred(), "failed to create controller-runtime client")
 
 	secret, issuer, err := o.secretAndIssuerForTest(f)
 	Expect(err).NotTo(HaveOccurred(), "failed to initialise test objects")
 
-	err = crt.Delete(ctx, issuer)
+	err = f.CRClient.Delete(ctx, issuer)
 	Expect(err).NotTo(HaveOccurred(), "failed to delete issuer")
 
-	err = crt.Delete(ctx, secret)
+	err = f.CRClient.Delete(ctx, secret)
 	Expect(err).NotTo(HaveOccurred(), "failed to delete secret")
 }

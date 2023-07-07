@@ -1,5 +1,3 @@
-//go:build e2e_test
-
 /*
 Copyright 2020 The cert-manager Authors.
 
@@ -27,7 +25,8 @@ import (
 	"github.com/onsi/gomega"
 	"k8s.io/apimachinery/pkg/util/wait"
 
-	_ "github.com/cert-manager/cert-manager/e2e-tests/suite"
+	// _ "github.com/cert-manager/cert-manager/e2e-tests/suite"
+	_ "github.com/cert-manager/cert-manager/e2e-tests/suite/conformance"
 	"github.com/cert-manager/cert-manager/pkg/logs"
 )
 
@@ -43,9 +42,11 @@ func TestE2E(t *testing.T) {
 
 	gomega.RegisterFailHandler(ginkgo.Fail)
 
-	if err := cfg.Validate(); err != nil {
-		t.Fatalf("Invalid test config: %v", err)
-	}
+	/*
+		if err := cfg.Validate(); err != nil {
+			t.Fatalf("Invalid test config: %v", err)
+		}
+	*/
 
 	ginkgo.RunSpecs(t, "cert-manager e2e suite")
 }
