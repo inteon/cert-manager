@@ -126,6 +126,14 @@ const (
 	// CertificateRequest's usages to be only defined in the CSR, while leaving
 	// the usages field empty.
 	DisallowInsecureCSRUsageDefinition featuregate.Feature = "DisallowInsecureCSRUsageDefinition"
+
+	// Owner: @SpectralHiss
+	// Alpha: v1.14
+	//
+	// OtherNameSANs adds support for OtherName Subject Alternative Name values in
+	// Certificate resources.
+	// Github Issue: https://github.com/cert-manager/cert-manager/issues/6393
+	OtherNameSANs featuregate.Feature = "OtherNameSANs"
 )
 
 func init() {
