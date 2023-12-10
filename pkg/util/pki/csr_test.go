@@ -22,6 +22,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/asn1"
+	"fmt"
 	"math/big"
 	"net"
 	"reflect"
@@ -286,11 +287,19 @@ Outer:
 }
 
 func OtherNameSANRawVal(expectedOID asn1.ObjectIdentifier) (asn1.RawValue, error) {
+	var otherNameParam = fmt.Sprintf("tag:%d", nameTypeOtherName)
+
+	value, err := MarshalUniversalValue(UniversalValue{
+		Utf8String: "user@example.org",
+	}, WrapExplicit(0))
+	if err != nil {
+		return asn1.NullRawValue, err
+	}
+
 	otherNameDer, err := asn1.MarshalWithParams(OtherName{
 		TypeID: expectedOID, // UPN OID
-		Value: StringValueLikeType{
-			A: "user@example.org",
-		}}, otherNameParam)
+		Value:  value,
+	}, otherNameParam)
 
 	if err != nil {
 		return asn1.NullRawValue, err
@@ -301,29 +310,9 @@ func OtherNameSANRawVal(expectedOID asn1.ObjectIdentifier) (asn1.RawValue, error
 	return rawVal, nil
 }
 
-func MustMarshalSAN(generalNames []asn1.RawValue) pkix.Extension {
-	val, err := asn1.Marshal(generalNames)
-	if err != nil {
-		panic(err)
-	}
-	return pkix.Extension{
-		Id:    oidExtensionSubjectAltName,
-		Value: val,
-	}
-}
-
 func TestGenerateCSR(t *testing.T) {
-
-	// 0xa0 = DigitalSignature and Encipherment usage
-	asn1KeyUsage, err := asn1.Marshal(asn1.BitString{Bytes: []byte{0xa0}, BitLength: asn1BitLength([]byte{0xa0})})
-
-	defaultExtraExtensions := []pkix.Extension{
-		{
-			Id:       OIDExtensionKeyUsage,
-			Value:    asn1KeyUsage,
-			Critical: true,
-		},
-	}
+	exampleLiteralSubject := "CN=actual-cn, OU=FooLong, OU=Bar, O=example.org"
+	exampleMultiValueRDNLiteralSubject := "CN=actual-cn, OU=FooLong+OU=Bar, O=example.org"
 
 	asn1otherNameUpnSANRawVal, err := OtherNameSANRawVal(asn1.ObjectIdentifier{1, 3, 6, 1, 4, 1, 311, 20, 2, 3}) // UPN OID
 	if err != nil {
@@ -335,7 +324,14 @@ func TestGenerateCSR(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	asn1ExtKeyUsage, err := asn1.Marshal([]asn1.ObjectIdentifier{oidExtKeyUsageIPSECEndSystem})
+	// 0xa0 = DigitalSignature and Encipherment usage
+	asn1DefaultKeyUsage, err := asn1.Marshal(asn1.BitString{Bytes: []byte{0xa0}, BitLength: asn1BitLength([]byte{0xa0})})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// 0xa4 = DigitalSignature, Encipherment and KeyCertSign usage
+	asn1KeyUsageWithCa, err := asn1.Marshal(asn1.BitString{Bytes: []byte{0xa4}, BitLength: asn1BitLength([]byte{0xa4})})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -355,12 +351,16 @@ func TestGenerateCSR(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	basicConstraintsGenerator := func(isCA bool) ([]byte, error) {
-		return asn1.Marshal(struct {
+	basicConstraintsGenerator := func(t *testing.T, isCA bool) []byte {
+		data, err := asn1.Marshal(struct {
 			IsCA bool `asn1:"optional"`
 		}{
 			IsCA: isCA,
 		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		return data
 	}
 
 	subjectGenerator := func(t *testing.T, name pkix.Name) []byte {
@@ -371,14 +371,29 @@ func TestGenerateCSR(t *testing.T) {
 		return data
 	}
 
-	basicConstraintsWithCA, err := basicConstraintsGenerator(true)
-	if err != nil {
-		t.Fatal(err)
+	sansGenerator := func(t *testing.T, generalNames []asn1.RawValue, critical bool) pkix.Extension {
+		val, err := asn1.Marshal(generalNames)
+		if err != nil {
+			panic(err)
+		}
+
+		return pkix.Extension{
+			Id:       oidExtensionSubjectAltName,
+			Critical: critical,
+			Value:    val,
+		}
 	}
 
-	basicConstraintsWithoutCA, err := basicConstraintsGenerator(false)
-	if err != nil {
-		t.Fatal(err)
+	literalSubectGenerator := func(t *testing.T, literal string) []byte {
+		rawSubject, err := UnmarshalSubjectStringToRDNSequence(literal)
+		if err != nil {
+			t.Fatal(err)
+		}
+		asn1Subject, err := MarshalRDNSequenceToRawDERBytes(rawSubject)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return asn1Subject
 	}
 
 	_, permittedIPNet, err := net.ParseCIDR("10.10.0.0/16")
@@ -403,24 +418,6 @@ func TestGenerateCSR(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// 0xa0 = DigitalSignature, Encipherment and KeyCertSign usage
-	asn1KeyUsageWithCa, err := asn1.Marshal(asn1.BitString{Bytes: []byte{0xa4}, BitLength: asn1BitLength([]byte{0xa4})})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	exampleLiteralSubject := "CN=actual-cn, OU=FooLong, OU=Bar, O=example.org"
-	rawExampleLiteralSubject, err := ParseSubjectStringToRawDERBytes(exampleLiteralSubject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	exampleMultiValueRDNLiteralSubject := "CN=actual-cn, OU=FooLong+OU=Bar, O=example.org"
-	rawExampleMultiValueRDNLiteralSubject, err := ParseSubjectStringToRawDERBytes(exampleMultiValueRDNLiteralSubject)
-	if err != nil {
-		t.Fatal(err)
-	}
-
 	tests := []struct {
 		name                                    string
 		crt                                     *cmapi.Certificate
@@ -429,6 +426,7 @@ func TestGenerateCSR(t *testing.T) {
 		literalCertificateSubjectFeatureEnabled bool
 		basicConstraintsFeatureEnabled          bool
 		nameConstraintsFeatureEnabled           bool
+		encodeOtherNameSANsFeatureEnabled       bool
 	}{
 		{
 			name: "Generate CSR from certificate with only DNS",
@@ -437,9 +435,21 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				DNSNames:           []string{"example.org"},
-				ExtraExtensions:    defaultExtraExtensions,
-				RawSubject:         subjectGenerator(t, pkix.Name{}),
+				ExtraExtensions: []pkix.Extension{
+					sansGenerator(
+						t,
+						[]asn1.RawValue{
+							{Tag: nameTypeDNSName, Class: 2, Bytes: []byte("example.org")},
+						},
+						false,
+					),
+					{
+						Id:       OIDExtensionKeyUsage,
+						Value:    asn1DefaultKeyUsage,
+						Critical: true,
+					},
+				},
+				RawSubject: subjectGenerator(t, pkix.Name{}),
 			},
 		},
 		{
@@ -449,8 +459,14 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				ExtraExtensions:    defaultExtraExtensions,
-				RawSubject:         subjectGenerator(t, pkix.Name{CommonName: "example.org"}),
+				ExtraExtensions: []pkix.Extension{
+					{
+						Id:       OIDExtensionKeyUsage,
+						Value:    asn1DefaultKeyUsage,
+						Critical: true,
+					},
+				},
+				RawSubject: subjectGenerator(t, pkix.Name{CommonName: "example.org"}),
 			},
 		},
 		{
@@ -480,12 +496,12 @@ func TestGenerateCSR(t *testing.T) {
 				ExtraExtensions: []pkix.Extension{
 					{
 						Id:       OIDExtensionKeyUsage,
-						Value:    asn1KeyUsage,
+						Value:    asn1DefaultKeyUsage,
 						Critical: true,
 					},
 					{
 						Id:       OIDExtensionBasicConstraints,
-						Value:    basicConstraintsWithoutCA,
+						Value:    basicConstraintsGenerator(t, false),
 						Critical: true,
 					},
 				},
@@ -508,7 +524,7 @@ func TestGenerateCSR(t *testing.T) {
 					},
 					{
 						Id:       OIDExtensionBasicConstraints,
-						Value:    basicConstraintsWithCA,
+						Value:    basicConstraintsGenerator(t, true),
 						Critical: true,
 					},
 				},
@@ -526,7 +542,7 @@ func TestGenerateCSR(t *testing.T) {
 				ExtraExtensions: []pkix.Extension{
 					{
 						Id:       OIDExtensionKeyUsage,
-						Value:    asn1KeyUsage,
+						Value:    asn1DefaultKeyUsage,
 						Critical: true,
 					},
 					{
@@ -549,8 +565,21 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				ExtraExtensions:    append(defaultExtraExtensions, MustMarshalSAN([]asn1.RawValue{asn1otherNameUpnSANRawVal})),
+				ExtraExtensions: []pkix.Extension{
+					sansGenerator(
+						t,
+						[]asn1.RawValue{asn1otherNameUpnSANRawVal},
+						false,
+					),
+					{
+						Id:       OIDExtensionKeyUsage,
+						Value:    asn1DefaultKeyUsage,
+						Critical: true,
+					},
+				},
+				RawSubject: subjectGenerator(t, pkix.Name{}),
 			},
+			encodeOtherNameSANsFeatureEnabled: true,
 		},
 		{
 			name: "Generate CSR from certificate with multiple valid otherName oids and emailSANs set",
@@ -562,7 +591,7 @@ func TestGenerateCSR(t *testing.T) {
 						StringValue: "user@example.org",
 					},
 					{
-						OID:         "oid:1.2.840.113556.1.4.221", // this is the legacy sAMAccountName to make example 'realistic' but could be any oid
+						OID:         "1.2.840.113556.1.4.221",
 						StringValue: "user@example.org",
 					},
 				}}},
@@ -570,13 +599,26 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				ExtraExtensions: append(defaultExtraExtensions, MustMarshalSAN([]asn1.RawValue{
-					asn1otherNameUpnSANRawVal,
-					asn1otherNamesAMAAccountNameRawVal,
-					{Tag: nameTypeEmail, Class: 2, Bytes: []byte("user@example.org")},
-					{Tag: nameTypeEmail, Class: 2, Bytes: []byte("alt-email@example.org")}})),
-				EmailAddresses: []string{"user@example.org", "alt-email@example.org"},
+				ExtraExtensions: []pkix.Extension{
+					sansGenerator(
+						t,
+						[]asn1.RawValue{
+							{Tag: nameTypeRFC822Name, Class: 2, Bytes: []byte("user@example.org")},
+							{Tag: nameTypeRFC822Name, Class: 2, Bytes: []byte("alt-email@example.org")},
+							asn1otherNameUpnSANRawVal,
+							asn1otherNamesAMAAccountNameRawVal,
+						},
+						false,
+					),
+					{
+						Id:       OIDExtensionKeyUsage,
+						Value:    asn1DefaultKeyUsage,
+						Critical: true,
+					},
+				},
+				RawSubject: subjectGenerator(t, pkix.Name{}),
 			},
+			encodeOtherNameSANsFeatureEnabled: true,
 		},
 		{
 			name: "Generate CSR from certificate with malformed otherName oid type",
@@ -595,8 +637,14 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				ExtraExtensions:    defaultExtraExtensions,
-				RawSubject:         subjectGenerator(t, pkix.Name{CommonName: "example.org"}),
+				ExtraExtensions: []pkix.Extension{
+					{
+						Id:       OIDExtensionKeyUsage,
+						Value:    asn1DefaultKeyUsage,
+						Critical: true,
+					},
+				},
+				RawSubject: subjectGenerator(t, pkix.Name{CommonName: "example.org"}),
 			},
 		},
 		{
@@ -611,8 +659,14 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				ExtraExtensions:    defaultExtraExtensions,
-				RawSubject:         rawExampleLiteralSubject,
+				ExtraExtensions: []pkix.Extension{
+					{
+						Id:       OIDExtensionKeyUsage,
+						Value:    asn1DefaultKeyUsage,
+						Critical: true,
+					},
+				},
+				RawSubject: literalSubectGenerator(t, exampleLiteralSubject),
 			},
 			literalCertificateSubjectFeatureEnabled: true,
 		},
@@ -623,8 +677,14 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				ExtraExtensions:    defaultExtraExtensions,
-				RawSubject:         rawExampleMultiValueRDNLiteralSubject,
+				ExtraExtensions: []pkix.Extension{
+					{
+						Id:       OIDExtensionKeyUsage,
+						Value:    asn1DefaultKeyUsage,
+						Critical: true,
+					},
+				},
+				RawSubject: literalSubectGenerator(t, exampleMultiValueRDNLiteralSubject),
 			},
 			literalCertificateSubjectFeatureEnabled: true,
 		},
@@ -641,8 +701,14 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				DNSNames:           []string{"example.org"},
 				ExtraExtensions: []pkix.Extension{
+					sansGenerator(
+						t,
+						[]asn1.RawValue{
+							{Tag: nameTypeDNSName, Class: 2, Bytes: []byte("example.org")},
+						},
+						false,
+					),
 					{
 						Id:       OIDExtensionKeyUsage,
 						Value:    asn1DefaultKeyUsage,
@@ -665,8 +731,14 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				DNSNames:           []string{"example.org"},
 				ExtraExtensions: []pkix.Extension{
+					sansGenerator(
+						t,
+						[]asn1.RawValue{
+							{Tag: nameTypeDNSName, Class: 2, Bytes: []byte("example.org")},
+						},
+						false,
+					),
 					{
 						Id:       OIDExtensionKeyUsage,
 						Value:    asn1DefaultKeyUsage,
@@ -693,8 +765,14 @@ func TestGenerateCSR(t *testing.T) {
 				Version:            0,
 				SignatureAlgorithm: x509.SHA256WithRSA,
 				PublicKeyAlgorithm: x509.RSA,
-				DNSNames:           []string{"example.org"},
 				ExtraExtensions: []pkix.Extension{
+					sansGenerator(
+						t,
+						[]asn1.RawValue{
+							{Tag: nameTypeDNSName, Class: 2, Bytes: []byte("example.org")},
+						},
+						false,
+					),
 					{
 						Id:       OIDExtensionKeyUsage,
 						Value:    asn1DefaultKeyUsage,
@@ -747,12 +825,14 @@ func TestGenerateCSR(t *testing.T) {
 			nameConstraintsFeatureEnabled: true,
 		},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			got, err := GenerateCSR(
 				tt.crt,
 				WithEncodeBasicConstraintsInRequest(tt.basicConstraintsFeatureEnabled),
 				WithEncodeNameConstraintsInRequest(tt.nameConstraintsFeatureEnabled),
+				WithEncodeOtherNameSANs(tt.encodeOtherNameSANsFeatureEnabled),
 				WithUseLiteralSubject(tt.literalCertificateSubjectFeatureEnabled),
 			)
 			if (err != nil) != tt.wantErr {

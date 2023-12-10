@@ -230,10 +230,6 @@ func CertificateTemplateFromCSR(csr *x509.CertificateRequest, validatorMutators 
 			template.UnknownExtKeyUsage = unknownUsages
 		}
 
-		if val.Id.Equal(oidExtensionSubjectAltName) {
-			template.ExtraExtensions = append(template.ExtraExtensions, val)
-		}
-
 		return nil
 	}
 
