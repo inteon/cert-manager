@@ -19,7 +19,6 @@ limitations under the License.
 package internal
 
 import (
-	"encoding/asn1"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -46,9 +45,8 @@ type RelativeDN struct {
 // The escaped character is removed and the following character is treated as
 // a literal. If the input string contains hex-encoded characters of the form '\XX'
 // where XX is a two-character hexadecimal number, the hex-encoded character is
-// replaced with the decoded character. If the value of an AttributeValue starts
-// with a '#' character, the value is assumed to be hex-encoded asn1 DER and is
-// decoded before being added to the RelativeDN.
+// replaced with the decoded character. Different from the RFCs, this function
+// does not support hex-encoded BER values.
 func ParseDN(str string) ([]RelativeDN, error) {
 	if len(strings.TrimSpace(str)) == 0 {
 		return nil, nil
@@ -86,20 +84,15 @@ func ParseDN(str string) ([]RelativeDN, error) {
 		// setValue is a closure that sets the value of the current attribute
 		setValue = func(s string) error {
 			if len(s) > 0 && s[0] == '#' {
-				valueVal, err := decodeEncodedString(s[1:])
-				if err != nil {
-					return err
-				}
-				attribute.Value = valueVal
-				return nil
-			} else {
-				valueVal, err := decodeString(s)
-				if err != nil {
-					return err
-				}
-				attribute.Value = valueVal
-				return nil
+				return fmt.Errorf("hex-encoded BER values are not supported: %s", s)
 			}
+
+			valueVal, err := decodeString(s)
+			if err != nil {
+				return err
+			}
+			attribute.Value = valueVal
+			return nil
 		}
 	}
 
@@ -143,26 +136,6 @@ func ParseDN(str string) ([]RelativeDN, error) {
 	addAttribute(true)
 
 	return rdns, nil
-}
-
-// If the string starts with a #, it's a hex-encoded DER value
-// This function decodes the value after the # and returns the decoded value.
-func decodeEncodedString(inVal string) (any, error) {
-	decoded, err := hex.DecodeString(inVal)
-	if err != nil {
-		return "", fmt.Errorf("failed to decode hex-encoded string: %s", err)
-	}
-
-	var rawValue asn1.RawValue
-	rest, err := asn1.Unmarshal(decoded, &rawValue)
-	if err != nil {
-		return "", fmt.Errorf("failed to unmarshal hex-encoded string: %s", err)
-	}
-	if len(rest) != 0 {
-		return "", errors.New("trailing data after unmarshalling hex-encoded string")
-	}
-
-	return rawValue, nil
 }
 
 // Remove leading and trailing spaces from the attribute type and value

@@ -19,7 +19,6 @@ limitations under the License.
 package internal
 
 import (
-	"encoding/asn1"
 	"reflect"
 	"testing"
 )
@@ -96,31 +95,6 @@ func TestSuccessfulDNParsing(t *testing.T) {
 		`1.3.6.1.4.1.1466.0=test`: {
 			{[]AttributeTypeAndValue{{"1.3.6.1.4.1.1466.0", "test"}}},
 		},
-		`1=#04024869`: {
-			{[]AttributeTypeAndValue{{"1", asn1.RawValue{
-				Tag: 4, Class: 0,
-				IsCompound: false,
-				Bytes:      []byte{0x48, 0x69},
-				FullBytes:  []byte{0x04, 0x02, 0x48, 0x69},
-			}}}},
-		},
-		`1.3.6.1.4.1.1466.0=#04024869`: {
-			{[]AttributeTypeAndValue{{"1.3.6.1.4.1.1466.0", asn1.RawValue{
-				Tag: 4, Class: 0,
-				IsCompound: false,
-				Bytes:      []byte{0x48, 0x69},
-				FullBytes:  []byte{0x04, 0x02, 0x48, 0x69},
-			}}}},
-		},
-		`1.3.6.1.4.1.1466.0=#04024869,DC=net`: {
-			{[]AttributeTypeAndValue{{"1.3.6.1.4.1.1466.0", asn1.RawValue{
-				Tag: 4, Class: 0,
-				IsCompound: false,
-				Bytes:      []byte{0x48, 0x69},
-				FullBytes:  []byte{0x04, 0x02, 0x48, 0x69},
-			}}}},
-			{[]AttributeTypeAndValue{{"DC", "net"}}},
-		},
 	}
 
 	for test, answer := range testcases {
@@ -160,8 +134,9 @@ func TestErrorDNParsing(t *testing.T) {
 		"1.3.6.1.4.1.1466.0=test+":  "DN ended with incomplete type, value pair",
 		`1.3.6.1.4.1.1466.0=test;`:  "DN ended with incomplete type, value pair",
 		"1.3.6.1.4.1.1466.0=test+,": "incomplete type, value pair",
-		"1=#0402486":                "failed to decode hex-encoded string: encoding/hex: odd length hex string",
-		"DF=#6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF": "failed to unmarshal hex-encoded string: asn1: syntax error: data truncated",
+		"1=#0402486":                "hex-encoded BER values are not supported: #0402486",
+		"DF=#6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF": "hex-encoded BER values are not supported: #6666666666665006838820013100000746939546349182108463491821809FBFFFFFFFFF",
+		"1.3.6.1.4.1.1466.0=#04024869": "hex-encoded BER values are not supported: #04024869",
 	}
 
 	for test, answer := range testcases {

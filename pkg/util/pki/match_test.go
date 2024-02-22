@@ -274,11 +274,6 @@ func TestRequestMatchesSpecSubject(t *testing.T) {
 			x509CSR:        createCSRBlob("ST=example"),
 			violations:     []string{"spec.literalSubject"},
 		},
-		{
-			name:           "Matching LiteralSubjects",
-			literalSubject: "ST=example,C=US,O=#04024869",
-			x509CSR:        createCSRBlob("ST=example,C=US,O=#04024869"),
-		},
 	}
 
 	for _, test := range tests {
