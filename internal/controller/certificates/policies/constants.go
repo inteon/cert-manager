@@ -26,16 +26,21 @@ const (
 	// InvalidKeyPair is a policy violation reason for a scenario where public
 	// key of certificate does not match private key.
 	InvalidKeyPair string = "InvalidKeyPair"
+	// InvalidManagedFields is a policy violation reason for a scenario where
+	// managed fields on the Secret are invalid.
+	InvalidManagedFields string = "InvalidManagedFields"
+	// InvalidPrivateKey is a policy violation reason for a scenario where the
+	// private key in the Input Secret could not be parsed or decoded.
+	InvalidPrivateKey string = "InvalidPrivateKey"
 	// InvalidCertificate is a policy violation whereby the signed certificate in
 	// the Input Secret could not be parsed or decoded.
 	InvalidCertificate string = "InvalidCertificate"
 	// InvalidCertificateRequest is a policy violation whereby the CSR in
 	// the Input CertificateRequest could not be parsed or decoded.
 	InvalidCertificateRequest string = "InvalidCertificateRequest"
+)
 
-	// SecretMismatch is a policy violation reason for a scenario where Secret's
-	// private key does not match spec.
-	SecretMismatch string = "SecretMismatch"
+const (
 	// IncorrectIssuer is a policy violation reason for a scenario where
 	// Certificate has been issued by incorrect Issuer.
 	IncorrectIssuer string = "IncorrectIssuer"
@@ -44,32 +49,37 @@ const (
 	// already has a `cert-manager.io/certificate-name` annotation
 	// with the name of another Certificate.
 	IncorrectCertificate string = "IncorrectCertificate"
+
+	// SecretMismatch is a policy violation reason for a scenario where Secret's
+	// private key does not match spec.
+	SecretMismatch string = "SecretMismatch"
 	// RequestChanged is a policy violation reason for a scenario where
 	// CertificateRequest not valid for Certificate's spec.
 	RequestChanged string = "RequestChanged"
+
 	// Renewing is a policy violation reason for a scenario where
 	// Certificate's renewal time is now or in past.
 	Renewing string = "Renewing"
 	// Expired is a policy violation reason for a scenario where Certificate has
 	// expired.
 	Expired string = "Expired"
-	// SecretTemplateMisMatch is a policy violation whereby the Certificate's
-	// SecretTemplate is not reflected on the target Secret, either by having
-	// extra, missing, or wrong Annotations or Labels.
-	SecretTemplateMismatch string = "SecretTemplateMismatch"
-	// SecretManagedMetadataMismatch is a policy violation whereby the Secret is
-	// missing labels that should have been added by cert-manager
-	SecretManagedMetadataMismatch string = "SecretManagedMetadataMismatch"
+)
 
+const (
+	// SecretMetadataMismatch is a policy violation whereby the Secret has
+	// extra, missing, or wrong Annotations or Labels. The expected set of labels
+	// and annotations are based on the Certificate's SecretTemplate and the
+	// labels and annotations managed by cert-manager.
+	SecretMetadataMismatch string = "SecretMetadataMismatch"
 	// AdditionalOutputFormatsMismatch is a policy violation whereby the
 	// Certificate's AdditionalOutputFormats is not reflected on the target
 	// Secret, either by having extra, missing, or wrong values.
 	AdditionalOutputFormatsMismatch string = "AdditionalOutputFormatsMismatch"
-	// ManagedFieldsParseError is a policy violation whereby cert-manager was
-	// unable to decode the managed fields on a resource.
-	ManagedFieldsParseError string = "ManagedFieldsParseError"
 	// SecretOwnerRefMismatch is a policy violation whereby the Secret either has
 	// a missing owner reference to the Certificate, or has an owner reference it
 	// shouldn't have.
 	SecretOwnerRefMismatch string = "SecretOwnerRefMismatch"
+	// SecretKeystoreMismatch is a policy violation whereby the Secret does not have
+	// the requested keystore formats.
+	SecretKeystoreMismatch string = "SecretKeystoreMismatch"
 )
