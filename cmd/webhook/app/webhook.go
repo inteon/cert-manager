@@ -22,13 +22,14 @@ import (
 	"os"
 	"path/filepath"
 
+	logconfig "github.com/controller-funtime/base/logs/config"
+	"github.com/controller-funtime/base/version"
 	"github.com/spf13/cobra"
 
 	config "github.com/cert-manager/cert-manager/internal/apis/config/webhook"
 	"github.com/cert-manager/cert-manager/internal/apis/config/webhook/validation"
 	cmwebhook "github.com/cert-manager/cert-manager/internal/webhook"
 	logf "github.com/cert-manager/cert-manager/pkg/logs"
-	"github.com/cert-manager/cert-manager/pkg/util"
 	"github.com/cert-manager/cert-manager/pkg/util/configfile"
 	utilfeature "github.com/cert-manager/cert-manager/pkg/util/feature"
 	webhookconfigfile "github.com/cert-manager/cert-manager/pkg/webhook/configfile"
@@ -70,7 +71,7 @@ func newServerCommand(
 
 	cmd := &cobra.Command{
 		Use:   componentWebhook,
-		Short: fmt.Sprintf("Webhook component providing API validation, mutation and conversion functionality for cert-manager (%s) (%s)", util.AppVersion, util.AppGitCommit),
+		Short: fmt.Sprintf("Webhook component providing API validation, mutation and conversion functionality for cert-manager (%s) (%s)", version.Version(setupCtx).GitVersion, version.Version(setupCtx).GitCommit),
 		Long: `
 cert-manager is a Kubernetes addon to automate the management and issuance of
 TLS certificates from various issuing sources.
@@ -104,7 +105,7 @@ functionality for cert-manager.`,
 			// logging flags, the logging API does not have an Apply-only function
 			// so we validate again here. This should not catch any validation errors
 			// anymore.
-			if err := logf.ValidateAndApply(&webhookConfig.Logging); err != nil {
+			if err := logconfig.ValidateAndApply(&webhookConfig.Logging); err != nil {
 				return fmt.Errorf("failed to validate webhook logging flags: %w", err)
 			}
 

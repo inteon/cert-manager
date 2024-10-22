@@ -64,8 +64,8 @@ func (b *Builder) With(function func(context.Context), duration time.Duration) *
 	return b
 }
 
-func (b *Builder) Complete() (Interface, error) {
-	controllerctx, err := b.contextFactory.Build(b.name)
+func (b *Builder) Complete(ctx context.Context) (Interface, error) {
+	controllerctx, err := b.contextFactory.Build(ctx, b.name)
 	if err != nil {
 		return nil, err
 	}

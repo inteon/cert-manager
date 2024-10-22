@@ -17,27 +17,29 @@ limitations under the License.
 package main
 
 import (
-	"context"
 	"flag"
+
+	"github.com/controller-funtime/base/cmdutil"
+	"github.com/controller-funtime/base/logs"
 
 	"github.com/cert-manager/cert-manager/controller-binary/app"
 	"github.com/cert-manager/cert-manager/internal/cmd/util"
-	logf "github.com/cert-manager/cert-manager/pkg/logs"
 )
 
 func main() {
-	ctx, exit := util.SetupExitHandler(context.Background(), util.GracefulShutdown)
-	defer exit() // This function might call os.Exit, so defer last
+	ctx, exit := cmdutil.SetupExitHandler(cmdutil.GracefulShutdown)
+	defer exit() // This function might call os.Exit, so defer last.
 
-	logf.InitLogs()
-	defer logf.FlushLogs()
-	ctx = logf.NewContext(ctx, logf.Log, "controller")
+	ctx, cancel := logs.SetupLogger(ctx)
+	defer cancel() // This function will stop flushing the logs.
+
+	ctx = logs.WithValue(ctx, logs.FromContext(ctx).WithName("controller"))
 
 	cmd := app.NewServerCommand(ctx)
 	cmd.Flags().AddGoFlagSet(flag.CommandLine)
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		logf.Log.Error(err, "error executing command")
+		logs.FromContext(ctx).Error(err, "error executing command")
 		util.SetExitCode(err)
 	}
 }

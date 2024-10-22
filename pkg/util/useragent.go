@@ -18,23 +18,31 @@ package util
 
 import (
 	"bytes"
-	"fmt"
+	"context"
 	"net/http"
 	"strings"
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/controller-funtime/base/version"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/client-go/rest"
 )
 
+func init() {
+	version.RegisterModule("client-go", "k8s.io/client-go")
+	version.RegisterModule("controller-runtime", "sigs.k8s.io/controller-runtime")
+}
+
 // RestConfigWithUserAgent returns a copy of the Kubernetes REST config with
 // the User Agent set which includes the optional component strings given.
-func RestConfigWithUserAgent(restConfig *rest.Config, component ...string) *rest.Config {
+func RestConfigWithUserAgent(ctx context.Context, restConfig *rest.Config, component ...string) *rest.Config {
 	restConfig = rest.CopyConfig(restConfig)
-	restConfig.UserAgent = fmt.Sprintf("%s/%s (%s) cert-manager/%s",
+	restConfig.UserAgent = version.Version(ctx).UserAgent(
 		strings.Join(append([]string{"cert-manager"}, component...), "-"),
-		version(), VersionInfo().Platform, VersionInfo().GitCommit)
+		"client-go",
+		"controller-runtime",
+	)
 	return restConfig
 }
 

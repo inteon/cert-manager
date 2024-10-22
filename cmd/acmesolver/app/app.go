@@ -21,16 +21,16 @@ import (
 	"fmt"
 	"time"
 
+	logconfig "github.com/controller-funtime/base/logs/config"
 	"github.com/spf13/cobra"
-	"k8s.io/component-base/logs"
 
 	"github.com/cert-manager/cert-manager/pkg/issuer/acme/http/solver"
-	logf "github.com/cert-manager/cert-manager/pkg/logs"
+	"github.com/cert-manager/cert-manager/pkg/logs"
 )
 
 func NewACMESolverCommand(_ context.Context) *cobra.Command {
 	s := new(solver.HTTP01Solver)
-	logOptions := logs.NewOptions()
+	logOptions := logconfig.NewConfig()
 
 	cmd := &cobra.Command{
 		Use:   "acmesolver",
@@ -40,7 +40,7 @@ func NewACMESolverCommand(_ context.Context) *cobra.Command {
 		SilenceUsage:  true, // Don't print usage on every error
 
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if err := logf.ValidateAndApply(logOptions); err != nil {
+			if err := logconfig.ValidateAndApply(logOptions); err != nil {
 				return fmt.Errorf("error validating options: %s", err)
 			}
 
@@ -49,7 +49,7 @@ func NewACMESolverCommand(_ context.Context) *cobra.Command {
 		// nolint:contextcheck // False positive
 		RunE: func(cmd *cobra.Command, args []string) error {
 			runCtx := cmd.Context()
-			log := logf.FromContext(runCtx)
+			log := logs.FromContext(runCtx)
 
 			completedCh := make(chan struct{})
 			go func() {

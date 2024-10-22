@@ -11,6 +11,10 @@ replace github.com/go-asn1-ber/asn1-ber => github.com/go-asn1-ber/asn1-ber v1.5.
 
 replace github.com/cert-manager/cert-manager => ../../
 
+replace github.com/controller-funtime/base => ../../../controller-funtime/base
+
+replace github.com/controller-funtime/base/logs/config => ../../../controller-funtime/base/logs/config
+
 require (
 	github.com/cert-manager/cert-manager v0.0.0-00010101000000-000000000000
 	github.com/cloudflare/cloudflare-go v0.102.0
@@ -36,6 +40,7 @@ require (
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/controller-funtime/base v0.0.0-00010101000000-000000000000 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/emicklei/go-restful/v3 v3.12.1 // indirect
 	github.com/evanphx/json-patch/v5 v5.9.0 // indirect
@@ -44,7 +49,6 @@ require (
 	github.com/go-asn1-ber/asn1-ber v1.5.6 // indirect
 	github.com/go-ldap/ldap/v3 v3.4.8 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
-	github.com/go-logr/zapr v1.3.0 // indirect
 	github.com/go-openapi/jsonpointer v0.21.0 // indirect
 	github.com/go-openapi/jsonreference v0.21.0 // indirect
 	github.com/go-openapi/swag v0.23.0 // indirect
@@ -86,10 +90,9 @@ require (
 	github.com/ryanuber/go-glob v1.0.0 // indirect
 	github.com/spf13/cobra v1.8.1 // indirect
 	github.com/x448/float16 v0.8.4 // indirect
-	go.uber.org/multierr v1.11.0 // indirect
-	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect

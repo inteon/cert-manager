@@ -59,10 +59,10 @@ type Vault struct {
 }
 
 func init() {
-	controllerpkg.Register(CSRControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(CSRControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		return controllerpkg.NewBuilder(ctx, CSRControllerName).
 			For(certificatesigningrequests.New(apiutil.IssuerVault, NewVault)).
-			Complete()
+			Complete(goctx)
 	})
 }
 

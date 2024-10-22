@@ -17,30 +17,28 @@ limitations under the License.
 package main
 
 import (
-	"context"
-
+	"github.com/controller-funtime/base/cmdutil"
+	"github.com/controller-funtime/base/logs"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/cert-manager/cert-manager/cainjector-binary/app"
 	"github.com/cert-manager/cert-manager/internal/cmd/util"
-	logf "github.com/cert-manager/cert-manager/pkg/logs"
 )
 
 func main() {
-	// Set up signal handlers and a cancellable context which gets cancelled on
-	// when either SIGINT or SIGTERM are received.
-	ctx, exit := util.SetupExitHandler(context.Background(), util.GracefulShutdown)
-	defer exit() // This function might call os.Exit, so defer last
+	ctx, exit := cmdutil.SetupExitHandler(cmdutil.GracefulShutdown)
+	defer exit() // This function might call os.Exit, so defer last.
 
-	logf.InitLogs()
-	defer logf.FlushLogs()
-	ctrl.SetLogger(logf.Log)
-	ctx = logf.NewContext(ctx, logf.Log)
+	ctx, cancel := logs.SetupLogger(ctx)
+	defer cancel() // This function will stop flushing the logs.
+
+	ctx = logs.WithValue(ctx, logs.FromContext(ctx).WithName("cainjector"))
+	ctrl.SetLogger(logs.FromContext(ctx)) // Set the global controller-runtime logger
 
 	cmd := app.NewCAInjectorCommand(ctx)
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		logf.Log.Error(err, "error executing command")
+		logs.FromContext(ctx).Error(err, "error executing command")
 		util.SetExitCode(err)
 	}
 }

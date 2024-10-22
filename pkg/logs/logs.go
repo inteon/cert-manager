@@ -22,39 +22,28 @@ import (
 	"fmt"
 	"math"
 
+	"github.com/controller-funtime/base/logs"
 	"github.com/go-logr/logr"
 	"github.com/spf13/pflag"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/component-base/logs"
 	logsapi "k8s.io/component-base/logs/api/v1"
 	"k8s.io/klog/v2"
 
 	"github.com/cert-manager/cert-manager/pkg/api"
-
-	_ "k8s.io/component-base/logs/json/register"
 )
 
-var Log = klog.TODO().WithName("cert-manager")
+var Log = logs.TODO().WithName("cert-manager")
 
 const (
-	// Following analog to https://github.com/kubernetes/community/blob/master/contributors/devel/sig-instrumentation/logging.md
-
-	ErrorLevel        = 0
-	WarnLevel         = 1
-	InfoLevel         = 2
-	ExtendedInfoLevel = 3
-	DebugLevel        = 4
-	TraceLevel        = 5
+	ErrorLevel        = logs.ErrorLevel
+	WarnLevel         = logs.WarnLevel
+	InfoLevel         = logs.InfoLevel
+	ExtendedInfoLevel = logs.ExtendedInfoLevel
+	DebugLevel        = logs.DebugLevel
+	TraceLevel        = logs.TraceLevel
 )
-
-// InitLogs initializes logs the way we want for kubernetes.
-func InitLogs() {
-	logs.InitLogs()
-
-	klog.EnableContextualLogging(true) // Enable contextual logging
-}
 
 func AddFlagsNonDeprecated(opts *logsapi.LoggingConfiguration, fs *pflag.FlagSet) {
 	var allFlags pflag.FlagSet
@@ -84,15 +73,6 @@ func AddFlags(opts *logsapi.LoggingConfiguration, fs *pflag.FlagSet) {
 	})
 
 	AddFlagsNonDeprecated(opts, fs)
-}
-
-func ValidateAndApply(opts *logsapi.LoggingConfiguration) error {
-	return logsapi.ValidateAndApply(opts, nil)
-}
-
-// FlushLogs flushes logs immediately.
-func FlushLogs() {
-	logs.FlushLogs()
 }
 
 const (
@@ -152,10 +132,7 @@ func WithRelatedResourceName(l logr.Logger, name, namespace, kind string) logr.L
 }
 
 func FromContext(ctx context.Context, names ...string) logr.Logger {
-	l, err := logr.FromContext(ctx)
-	if err != nil {
-		l = Log
-	}
+	l := logs.FromContext(ctx)
 	for _, n := range names {
 		l = l.WithName(n)
 	}
@@ -166,7 +143,7 @@ func NewContext(ctx context.Context, l logr.Logger, names ...string) context.Con
 	for _, n := range names {
 		l = l.WithName(n)
 	}
-	return logr.NewContext(ctx, l)
+	return logs.WithValue(ctx, l)
 }
 
 func V(level int) klog.Verbose {

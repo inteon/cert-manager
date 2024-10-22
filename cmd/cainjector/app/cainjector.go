@@ -22,6 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
+	logconfig "github.com/controller-funtime/base/logs/config"
+	"github.com/controller-funtime/base/version"
 	"github.com/spf13/cobra"
 
 	"github.com/cert-manager/cert-manager/cainjector-binary/app/options"
@@ -29,7 +31,6 @@ import (
 	"github.com/cert-manager/cert-manager/internal/apis/config/cainjector/validation"
 	cainjectorconfigfile "github.com/cert-manager/cert-manager/pkg/cainjector/configfile"
 	logf "github.com/cert-manager/cert-manager/pkg/logs"
-	"github.com/cert-manager/cert-manager/pkg/util"
 	"github.com/cert-manager/cert-manager/pkg/util/configfile"
 	utilfeature "github.com/cert-manager/cert-manager/pkg/util/feature"
 )
@@ -62,7 +63,7 @@ func newCAInjectorCommand(
 
 	cmd := &cobra.Command{
 		Use:   componentController,
-		Short: fmt.Sprintf("CA Injection Controller for Kubernetes (%s) (%s)", util.AppVersion, util.AppGitCommit),
+		Short: fmt.Sprintf("CA Injection Controller for Kubernetes (%s) (%s)", version.Version(setupCtx).GitVersion, version.Version(setupCtx).GitCommit),
 		Long: `
 cert-manager CA injector is a Kubernetes addon to automate the injection of CA data into
 webhooks and APIServices from cert-manager certificates.
@@ -97,7 +98,7 @@ servers and webhook servers.`,
 			// logging flags, the logging API does not have an Apply-only function
 			// so we validate again here. This should not catch any validation errors
 			// anymore.
-			if err := logf.ValidateAndApply(&cainjectorConfig.Logging); err != nil {
+			if err := logconfig.ValidateAndApply(&cainjectorConfig.Logging); err != nil {
 				return fmt.Errorf("failed to validate cainjector logging flags: %w", err)
 			}
 

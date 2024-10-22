@@ -45,7 +45,6 @@ import (
 	cmfake "github.com/cert-manager/cert-manager/pkg/client/clientset/versioned/fake"
 	informers "github.com/cert-manager/cert-manager/pkg/client/informers/externalversions"
 	"github.com/cert-manager/cert-manager/pkg/controller"
-	"github.com/cert-manager/cert-manager/pkg/logs"
 	logf "github.com/cert-manager/cert-manager/pkg/logs"
 	"github.com/cert-manager/cert-manager/pkg/metrics"
 	"github.com/cert-manager/cert-manager/pkg/util"
@@ -53,7 +52,7 @@ import (
 )
 
 func init() {
-	logs.InitLogs()
+	// logs.InitLogs()
 	_ = flag.Set("alsologtostderr", "true")
 	_ = flag.Set("v", "4")
 	ctrl.SetLogger(logf.Log)
@@ -164,7 +163,7 @@ func (b *Builder) Init() {
 	b.GWShared = gwinformers.NewSharedInformerFactory(b.GWClient, informerResyncPeriod)
 	b.HTTP01ResourceMetadataInformersFactory = metadatainformer.NewFilteredSharedInformerFactory(b.MetadataClient, informerResyncPeriod, "", func(listOptions *metav1.ListOptions) {})
 	b.stopCh = make(chan struct{})
-	b.Metrics = metrics.New(logs.Log, clock.RealClock{})
+	b.Metrics = metrics.New(logf.Log, clock.RealClock{})
 
 	// set the Clock on the context
 	if b.Clock == nil {
@@ -181,7 +180,7 @@ func (b *Builder) Init() {
 // RESTConfig with a `cert-manager/unit-test` User Agent.
 func (b *Builder) InitWithRESTConfig() {
 	b.Init()
-	b.RESTConfig = util.RestConfigWithUserAgent(new(rest.Config), "unit-testing")
+	b.RESTConfig = util.RestConfigWithUserAgent(context.TODO(), new(rest.Config), "unit-testing")
 }
 
 func (b *Builder) FakeKubeClient() *kubefake.Clientset {

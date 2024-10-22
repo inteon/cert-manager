@@ -17,6 +17,7 @@ limitations under the License.
 package util
 
 import (
+	"context"
 	"runtime"
 	"testing"
 
@@ -25,8 +26,6 @@ import (
 )
 
 func Test_RestConfigWithUserAgent(t *testing.T) {
-	AppGitCommit = "test-commit"
-
 	tests := map[string]struct {
 		component     []string
 		expRestConfig rest.Config
@@ -53,7 +52,7 @@ func Test_RestConfigWithUserAgent(t *testing.T) {
 
 	for name, test := range tests {
 		t.Run(name, func(t *testing.T) {
-			gotRestConfig := RestConfigWithUserAgent(new(rest.Config), test.component...)
+			gotRestConfig := RestConfigWithUserAgent(context.TODO(), new(rest.Config), test.component...)
 			assert.Equal(t, &test.expRestConfig, gotRestConfig)
 		})
 	}

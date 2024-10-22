@@ -153,9 +153,9 @@ func certificateHandler(queue workqueue.TypedRateLimitingInterface[types.Namespa
 }
 
 func init() {
-	controllerpkg.Register(ControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(ControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		return controllerpkg.NewBuilder(ctx, ControllerName).
 			For(&controller{}).
-			Complete()
+			Complete(goctx)
 	})
 }

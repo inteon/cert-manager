@@ -68,7 +68,7 @@ type ACME struct {
 
 func init() {
 	// create certificate request controller for acme issuer
-	controllerpkg.Register(CRControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(CRControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		// watch owned Order resources and trigger resyncs of CertificateRequests
 		// that own Orders automatically.
 		return controllerpkg.NewBuilder(ctx, CRControllerName).
@@ -93,7 +93,7 @@ func init() {
 					return []cache.InformerSynced{orderInformer.HasSynced}, nil
 				},
 			)).
-			Complete()
+			Complete(goctx)
 	})
 }
 

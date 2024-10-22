@@ -11,8 +11,14 @@ replace github.com/go-asn1-ber/asn1-ber => github.com/go-asn1-ber/asn1-ber v1.5.
 
 replace github.com/cert-manager/cert-manager => ../../
 
+replace github.com/controller-funtime/base => ../../../controller-funtime/base
+
+replace github.com/controller-funtime/base/logs/config => ../../../controller-funtime/base/logs/config
+
 require (
 	github.com/cert-manager/cert-manager v0.0.0-00010101000000-000000000000
+	github.com/controller-funtime/base v0.0.0-00010101000000-000000000000
+	github.com/controller-funtime/base/logs/config v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.8.1
 	k8s.io/component-base v0.31.1
 	sigs.k8s.io/controller-runtime v0.19.0
@@ -78,6 +84,7 @@ require (
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/crypto v0.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/oauth2 v0.23.0 // indirect
 	golang.org/x/sync v0.8.0 // indirect

@@ -51,11 +51,11 @@ func Test_ConditionsListType(t *testing.T) {
 	defer stopFn()
 
 	// Build clients with different field managers.
-	aliceRestConfig := util.RestConfigWithUserAgent(restConfig, "alice")
+	aliceRestConfig := util.RestConfigWithUserAgent(ctx, restConfig, "alice")
 	aliceFieldManager := util.PrefixFromUserAgent(aliceRestConfig.UserAgent)
 	aliceKubeClient, _, aliceCMClient, _, _ := framework.NewClients(t, aliceRestConfig)
 
-	bobRestConfig := util.RestConfigWithUserAgent(restConfig, "bob")
+	bobRestConfig := util.RestConfigWithUserAgent(ctx, restConfig, "bob")
 	bobFieldManager := util.PrefixFromUserAgent(bobRestConfig.UserAgent)
 	_, _, bobCMClient, _, _ := framework.NewClients(t, bobRestConfig)
 

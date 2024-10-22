@@ -57,9 +57,11 @@ type Controller struct {
 
 func init() {
 	// create certificate request approver controller
-	controllerpkg.Register(ControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
-		return controllerpkg.NewBuilder(ctx, ControllerName).
-			For(new(Controller)).Complete()
+	controllerpkg.Register(ControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+		return controllerpkg.
+			NewBuilder(ctx, ControllerName).
+			For(new(Controller)).
+			Complete(goctx)
 	})
 }
 

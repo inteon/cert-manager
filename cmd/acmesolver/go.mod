@@ -8,10 +8,15 @@ go 1.23.0
 
 replace github.com/cert-manager/cert-manager => ../../
 
+replace github.com/controller-funtime/base => ../../../controller-funtime/base
+
+replace github.com/controller-funtime/base/logs/config => ../../../controller-funtime/base/logs/config
+
 require (
 	github.com/cert-manager/cert-manager v0.0.0-00010101000000-000000000000
+	github.com/controller-funtime/base v0.0.0-00010101000000-000000000000
+	github.com/controller-funtime/base/logs/config v0.0.0-00010101000000-000000000000
 	github.com/spf13/cobra v1.8.1
-	k8s.io/component-base v0.31.1
 )
 
 require (
@@ -47,6 +52,7 @@ require (
 	k8s.io/api v0.31.1 // indirect
 	k8s.io/apiextensions-apiserver v0.31.1 // indirect
 	k8s.io/apimachinery v0.31.1 // indirect
+	k8s.io/component-base v0.31.1 // indirect
 	k8s.io/klog/v2 v2.130.1 // indirect
 	k8s.io/utils v0.0.0-20240921022957-49e7df575cb6 // indirect
 	sigs.k8s.io/gateway-api v1.1.0 // indirect

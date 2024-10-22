@@ -51,10 +51,10 @@ type Vault struct {
 
 func init() {
 	// create certificate request controller for vault issuer
-	controllerpkg.Register(CRControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(CRControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		return controllerpkg.NewBuilder(ctx, CRControllerName).
 			For(certificaterequests.New(apiutil.IssuerVault, NewVault)).
-			Complete()
+			Complete(goctx)
 	})
 }
 

@@ -22,6 +22,8 @@ import (
 	"os"
 	"path/filepath"
 
+	logconfig "github.com/controller-funtime/base/logs/config"
+	"github.com/controller-funtime/base/version"
 	"github.com/spf13/cobra"
 
 	"github.com/cert-manager/cert-manager/controller-binary/app/options"
@@ -29,7 +31,6 @@ import (
 	"github.com/cert-manager/cert-manager/internal/apis/config/controller/validation"
 	controllerconfigfile "github.com/cert-manager/cert-manager/pkg/controller/configfile"
 	logf "github.com/cert-manager/cert-manager/pkg/logs"
-	"github.com/cert-manager/cert-manager/pkg/util"
 	"github.com/cert-manager/cert-manager/pkg/util/configfile"
 	utilfeature "github.com/cert-manager/cert-manager/pkg/util/feature"
 
@@ -73,7 +74,7 @@ func newServerCommand(
 
 	cmd := &cobra.Command{
 		Use:   componentController,
-		Short: fmt.Sprintf("Automated TLS controller for Kubernetes (%s) (%s)", util.AppVersion, util.AppGitCommit),
+		Short: fmt.Sprintf("Automated TLS controller for Kubernetes (%s) (%s)", version.Version(setupCtx).GitVersion, version.Version(setupCtx).GitCommit),
 		Long: `
 cert-manager is a Kubernetes addon to automate the management and issuance of
 TLS certificates from various issuing sources.
@@ -107,7 +108,7 @@ to renew certificates at an appropriate time before expiry.`,
 			// logging flags, the logging API does not have an Apply-only function
 			// so we validate again here. This should not catch any validation errors
 			// anymore.
-			if err := logf.ValidateAndApply(&controllerConfig.Logging); err != nil {
+			if err := logconfig.ValidateAndApply(&controllerConfig.Logging); err != nil {
 				return fmt.Errorf("failed to validate controller logging flags: %w", err)
 			}
 

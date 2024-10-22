@@ -9,6 +9,10 @@ go 1.23.0
 // Can be removed once github.com/go-ldap/ldap/v3 releases a version that requires this version.
 replace github.com/go-asn1-ber/asn1-ber => github.com/go-asn1-ber/asn1-ber v1.5.6
 
+replace github.com/controller-funtime/base => ../controller-funtime/base
+
+replace github.com/controller-funtime/base/logs/config => ../controller-funtime/base/logs/config
+
 require (
 	github.com/Azure/azure-sdk-for-go/sdk/azcore v1.14.0
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.7.0
@@ -21,6 +25,8 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/route53 v1.44.0
 	github.com/aws/aws-sdk-go-v2/service/sts v1.31.0
 	github.com/aws/smithy-go v1.21.0
+	github.com/controller-funtime/base v0.0.0-00010101000000-000000000000
+	github.com/controller-funtime/base/logs/config v0.0.0-00010101000000-000000000000
 	github.com/cpu/goacmedns v0.1.1
 	github.com/digitalocean/godo v1.125.0
 	github.com/go-ldap/ldap/v3 v3.4.8
@@ -168,7 +174,7 @@ require (
 	go.uber.org/multierr v1.11.0 // indirect
 	go.uber.org/zap v1.27.0 // indirect
 	golang.org/x/exp v0.0.0-20240719175910-8a7402abbf56 // indirect
-	golang.org/x/mod v0.20.0 // indirect
+	golang.org/x/mod v0.21.0 // indirect
 	golang.org/x/net v0.29.0 // indirect
 	golang.org/x/sys v0.25.0 // indirect
 	golang.org/x/term v0.24.0 // indirect

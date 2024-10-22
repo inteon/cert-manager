@@ -17,35 +17,35 @@ limitations under the License.
 package main
 
 import (
-	"context"
-
+	"github.com/controller-funtime/base/cmdutil"
+	"github.com/controller-funtime/base/logs"
+	logconfig "github.com/controller-funtime/base/logs/config"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
-	"k8s.io/component-base/logs"
 	ctrl "sigs.k8s.io/controller-runtime"
 
 	"github.com/cert-manager/cert-manager/internal/cmd/util"
-	logf "github.com/cert-manager/cert-manager/pkg/logs"
 	"github.com/cert-manager/cert-manager/startupapicheck-binary/pkg/check"
 )
 
 func main() {
-	ctx, exit := util.SetupExitHandler(context.Background(), util.AlwaysErrCode)
-	defer exit() // This function might call os.Exit, so defer last
+	ctx, exit := cmdutil.SetupExitHandler(cmdutil.GracefulShutdown)
+	defer exit() // This function might call os.Exit, so defer last.
 
-	logf.InitLogs()
-	defer logf.FlushLogs()
-	ctrl.SetLogger(logf.Log)
-	ctx = logf.NewContext(ctx, logf.Log, "startupapicheck")
+	ctx, cancel := logs.SetupLogger(ctx)
+	defer cancel() // This function will stop flushing the logs.
 
-	logOptions := logs.NewOptions()
+	ctx = logs.WithValue(ctx, logs.FromContext(ctx).WithName("startupapicheck"))
+	ctrl.SetLogger(logs.FromContext(ctx)) // Set the global controller-runtime logger
+
+	logOptions := logconfig.NewConfig()
 
 	cmd := &cobra.Command{
 		Use:   "startupapicheck",
 		Short: "Check that cert-manager started successfully",
 		Long:  "Check that cert-manager started successfully",
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			return logf.ValidateAndApply(logOptions)
+			return logconfig.ValidateAndApply(logOptions)
 		},
 
 		SilenceErrors: true, // Errors are already logged when calling cmd.Execute()
@@ -54,7 +54,7 @@ func main() {
 
 	{
 		var logFlags pflag.FlagSet
-		logf.AddFlagsNonDeprecated(logOptions, &logFlags)
+		logconfig.AddFlags(logOptions, &logFlags)
 
 		logFlags.VisitAll(func(f *pflag.Flag) {
 			switch f.Name {
@@ -73,7 +73,7 @@ func main() {
 	cmd.AddCommand(check.NewCmdCheck(ctx))
 
 	if err := cmd.ExecuteContext(ctx); err != nil {
-		logf.Log.Error(err, "error executing command")
+		logs.FromContext(ctx).Error(err, "error executing command")
 		util.SetExitCode(err)
 	}
 }

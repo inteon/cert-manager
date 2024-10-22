@@ -262,7 +262,7 @@ func NewContextFactory(ctx context.Context, opts ContextOptions) (*ContextFactor
 	if err != nil {
 		return nil, fmt.Errorf("error creating rest config: %w", err)
 	}
-	restConfig = util.RestConfigWithUserAgent(restConfig)
+	restConfig = util.RestConfigWithUserAgent(ctx, restConfig)
 	restConfig.QPS = opts.KubernetesAPIQPS
 	restConfig.Burst = opts.KubernetesAPIBurst
 
@@ -325,8 +325,8 @@ func NewContextFactory(ctx context.Context, opts ContextOptions) (*ContextFactor
 
 // Build builds a new controller Context whose clients have a User Agent
 // derived from the optional component name.
-func (c *ContextFactory) Build(component ...string) (*Context, error) {
-	restConfig := util.RestConfigWithUserAgent(c.baseRestConfig, component...)
+func (c *ContextFactory) Build(goctx context.Context, component ...string) (*Context, error) {
+	restConfig := util.RestConfigWithUserAgent(goctx, c.baseRestConfig, component...)
 
 	scheme := runtime.NewScheme()
 	utilruntime.Must(kscheme.AddToScheme(scheme))

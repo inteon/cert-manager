@@ -80,7 +80,7 @@ func Run(rootCtx context.Context, opts *config.ControllerConfiguration) error {
 
 	// Build the base controller context for the cert-manager controller manager
 	// used here.
-	ctx, err := ctxFactory.Build()
+	ctx, err := ctxFactory.Build(rootCtx)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func Run(rootCtx context.Context, opts *config.ControllerConfiguration) error {
 	if opts.LeaderElectionConfig.Enabled {
 		g.Go(func() error {
 			log.V(logf.InfoLevel).Info("starting leader election")
-			ctx, err := ctxFactory.Build("leader-election")
+			ctx, err := ctxFactory.Build(rootCtx, "leader-election")
 			if err != nil {
 				return err
 			}
@@ -232,7 +232,7 @@ func Run(rootCtx context.Context, opts *config.ControllerConfiguration) error {
 			continue
 		}
 
-		iface, err := fn(ctxFactory)
+		iface, err := fn(rootCtx, ctxFactory)
 		if err != nil {
 			err = fmt.Errorf("error starting controller: %v", err)
 

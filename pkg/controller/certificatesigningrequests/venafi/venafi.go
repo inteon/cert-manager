@@ -69,10 +69,10 @@ type Venafi struct {
 }
 
 func init() {
-	controllerpkg.Register(CSRControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(CSRControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		return controllerpkg.NewBuilder(ctx, CSRControllerName).
 			For(certificatesigningrequests.New(apiutil.IssuerVenafi, NewVenafi)).
-			Complete()
+			Complete(goctx)
 	})
 }
 

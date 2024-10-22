@@ -32,9 +32,9 @@ func Test_NewContextFactory(t *testing.T) {
 	assert.NoError(t, err)
 
 	// Ensure a single RateLimiter is preserved across Contexts.
-	ctx1, err := ctxFactory.Build("test-1")
+	ctx1, err := ctxFactory.Build(context.TODO(), "test-1")
 	assert.NoError(t, err)
-	ctx2, err := ctxFactory.Build("test-2")
+	ctx2, err := ctxFactory.Build(context.TODO(), "test-2")
 	assert.NoError(t, err)
 
 	assert.NotNil(t, ctx1.RESTConfig.RateLimiter)

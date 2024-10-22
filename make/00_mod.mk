@@ -52,8 +52,9 @@ GOFLAGS := -trimpath
 ## Extra linking flags passed to 'go' via '-ldflags' when building.
 ## @category Build
 GOLDFLAGS := -w -s \
-	-X github.com/cert-manager/cert-manager/pkg/util.AppVersion=$(VERSION) \
-    -X github.com/cert-manager/cert-manager/pkg/util.AppGitCommit=$(GITCOMMIT)
+	-X github.com/controller-funtime/base/version.gitVersion=$(VERSION) \
+    -X github.com/controller-funtime/base/version.gitCommit=$(GITCOMMIT) \
+    -X github.com/controller-funtime/base/version.gitEpoch=$(GITEPOCH)
 
 golangci_lint_config := .golangci.yaml
 

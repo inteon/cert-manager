@@ -135,9 +135,9 @@ func (c *CA) Sign(ctx context.Context, cr *cmapi.CertificateRequest, issuerObj c
 
 func init() {
 	// create certificate request controller for ca issuer
-	controllerpkg.Register(CRControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(CRControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		return controllerpkg.NewBuilder(ctx, CRControllerName).
 			For(certificaterequests.New(apiutil.IssuerCA, NewCA)).
-			Complete()
+			Complete(goctx)
 	})
 }

@@ -67,7 +67,7 @@ const (
 func Run(opts *config.CAInjectorConfiguration, ctx context.Context) error {
 	log := logf.FromContext(ctx)
 
-	restConfig := util.RestConfigWithUserAgent(ctrl.GetConfigOrDie(), "cainjector")
+	restConfig := util.RestConfigWithUserAgent(ctx, ctrl.GetConfigOrDie(), "cainjector")
 
 	var defaultNamespaces map[string]cache.Config
 	if opts.Namespace != "" {

@@ -216,9 +216,9 @@ func (c *controllerWrapper) Register(ctx *controllerpkg.Context) (workqueue.Type
 }
 
 func init() {
-	controllerpkg.Register(ControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(ControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		return controllerpkg.NewBuilder(ctx, ControllerName).
 			For(&controllerWrapper{}).
-			Complete()
+			Complete(goctx)
 	})
 }

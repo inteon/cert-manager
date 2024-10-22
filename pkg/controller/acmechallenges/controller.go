@@ -226,11 +226,11 @@ const (
 )
 
 func init() {
-	controllerpkg.Register(ControllerName, func(ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
+	controllerpkg.Register(ControllerName, func(goctx context.Context, ctx *controllerpkg.ContextFactory) (controllerpkg.Interface, error) {
 		c := &controller{}
 		return controllerpkg.NewBuilder(ctx, ControllerName).
 			For(c).
 			With(c.runScheduler, time.Second).
-			Complete()
+			Complete(goctx)
 	})
 }

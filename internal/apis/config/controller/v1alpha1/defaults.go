@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/controller-funtime/base/version"
 	"k8s.io/apimachinery/pkg/runtime"
 	logsapi "k8s.io/component-base/logs/api/v1"
 
@@ -50,7 +51,6 @@ import (
 	csrvenaficontroller "github.com/cert-manager/cert-manager/pkg/controller/certificatesigningrequests/venafi"
 	clusterissuerscontroller "github.com/cert-manager/cert-manager/pkg/controller/clusterissuers"
 	issuerscontroller "github.com/cert-manager/cert-manager/pkg/controller/issuers"
-	"github.com/cert-manager/cert-manager/pkg/util"
 )
 
 var (
@@ -90,7 +90,7 @@ var (
 	defaultHealthzLeaderElectionTimeout = 20 * time.Second
 
 	// default time period to wait between checking DNS01 and HTTP01 challenge propagation
-	defaultACMEHTTP01SolverImage                 = fmt.Sprintf("quay.io/jetstack/cert-manager-acmesolver:%s", util.AppVersion)
+	defaultACMEHTTP01SolverImage                 = fmt.Sprintf("quay.io/jetstack/cert-manager-acmesolver:%s", version.EmbeddedGitVersionInfo().GitVersion)
 	defaultACMEHTTP01SolverResourceRequestCPU    = "10m"
 	defaultACMEHTTP01SolverResourceRequestMemory = "64Mi"
 	defaultACMEHTTP01SolverResourceLimitsCPU     = "100m"

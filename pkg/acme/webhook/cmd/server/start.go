@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"net"
 
+	logconfig "github.com/controller-funtime/base/logs/config"
 	"github.com/spf13/cobra"
 	genericapiserver "k8s.io/apiserver/pkg/server"
 	genericoptions "k8s.io/apiserver/pkg/server/options"
@@ -91,7 +92,7 @@ func NewCommandStartWebhookServer(_ context.Context, groupName string, solvers .
 }
 
 func (o WebhookServerOptions) Validate(args []string) error {
-	if err := logf.ValidateAndApply(o.Logging); err != nil {
+	if err := logconfig.ValidateAndApply(o.Logging); err != nil {
 		return err
 	}
 
