@@ -18,9 +18,9 @@ targets:
       repo_hash: cec6f63b919c285418ad88f306ce799e8ff402d1
       repo_path: modules/generate-verify
     - folder_name: go
-      repo_url: https://github.com/cert-manager/makefile-modules.git
+      repo_url: https://github.com/inteon/makefile-modules.git
       repo_ref: main
-      repo_hash: cec6f63b919c285418ad88f306ce799e8ff402d1
+      repo_hash: 27e1ddd1e4062be1d4acc9c2d807f54701ebd408
       repo_path: modules/go
     - folder_name: help
       repo_url: https://github.com/cert-manager/makefile-modules.git
@@ -38,7 +38,7 @@ targets:
       repo_hash: cec6f63b919c285418ad88f306ce799e8ff402d1
       repo_path: modules/repository-base
     - folder_name: tools
-      repo_url: https://github.com/cert-manager/makefile-modules.git
+      repo_url: https://github.com/inteon/makefile-modules.git
       repo_ref: main
-      repo_hash: cec6f63b919c285418ad88f306ce799e8ff402d1
+      repo_hash: 27e1ddd1e4062be1d4acc9c2d807f54701ebd408
       repo_path: modules/tools
