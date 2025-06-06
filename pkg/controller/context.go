@@ -95,6 +95,10 @@ type Context struct {
 	// DiscoveryClient is a discovery interface. Usually set to Client.Discovery unless a fake client is in use.
 	DiscoveryClient discovery.DiscoveryInterface
 
+	// ACMEAccountRegistry is used as a cache of ACME accounts between various
+	// components of cert-manager
+	ACMEAccountRegistry accounts.Registry
+
 	// Recorder to record events to
 	Recorder record.EventRecorder
 
@@ -204,10 +208,6 @@ type ACMEOptions struct {
 	// DNS01Nameservers is a list of nameservers to use when performing self-checks
 	// for ACME DNS01 validations.
 	DNS01Nameservers []string
-
-	// AccountRegistry is used as a cache of ACME accounts between various
-	// components of cert-manager
-	AccountRegistry accounts.Registry
 
 	// DNS01CheckRetryPeriod is the time the controller should wait between checking if a ACME dns entry exists.
 	DNS01CheckRetryPeriod time.Duration
@@ -359,6 +359,12 @@ func (c *ContextFactory) Build(component ...string) (*Context, error) {
 	ctx.MetadataClient = clients.metadataOnlyClient
 	ctx.DiscoveryClient = clients.kubeClient.Discovery()
 	ctx.Recorder = recorder
+	ctx.ACMEAccountRegistry = accounts.NewDefaultRegistry(
+		accounts.NewClient(
+			ctx.Metrics,
+			ctx.RESTConfig.UserAgent,
+		),
+	)
 
 	return &ctx, nil
 }
