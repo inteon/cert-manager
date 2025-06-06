@@ -535,11 +535,8 @@ func TestAcme_Setup(t *testing.T) {
 				RemoveClientFunc: func(string) {
 					removeClientWasCalled = true
 				},
-				AddClientFunc: func(string, accounts.NewClientOptions) {
+				AddClientFunc: func(string, accounts.RegistryItem) {
 					addClientWasCalled = true
-				},
-				IsKeyCheckSumCachedFunc: func(lastPrivateKeyHash string, privateKey *rsa.PrivateKey) bool {
-					return true
 				},
 			}
 

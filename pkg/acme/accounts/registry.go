@@ -17,10 +17,6 @@ limitations under the License.
 package accounts
 
 import (
-	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"errors"
 	"sync"
 
@@ -36,15 +32,11 @@ var ErrNotFound = errors.New("ACME client for issuer not initialised/available")
 type Registry interface {
 	// AddClient will ensure the registry has a stored ACME client for the Issuer
 	// object with the given UID, configuration and private key.
-	AddClient(uid string, options NewClientOptions)
+	AddClient(uid string, options RegistryItem)
 
 	// RemoveClient will remove a registered client using the UID of the Issuer
 	// resource that constructed it.
 	RemoveClient(uid string)
-
-	// IsKeyCheckSumCached checks if the private key checksum is cached with registered client.
-	// If not cached, the account is re-verified for the private key.
-	IsKeyCheckSumCached(lastPrivateKeyHash string, privateKey *rsa.PrivateKey) bool
 
 	Getter
 }
@@ -67,7 +59,7 @@ type Getter interface {
 func NewDefaultRegistry(newClientFunc NewClientFunc) Registry {
 	return &registry{
 		newClientFunc: newClientFunc,
-		clients:       make(map[string]clientWithMeta),
+		clients:       make(map[string]registryItemWithClient),
 	}
 }
 
@@ -78,80 +70,26 @@ type registry struct {
 	newClientFunc NewClientFunc
 
 	// a map of an issuer's 'uid' to an ACME client with metadata
-	clients map[string]clientWithMeta
+	clients map[string]registryItemWithClient
 }
 
-// stableOptions contains data about an ACME client that can be used to compare
-// for 'equality' between two clients. This is used to determine whether any
-// options that should trigger a re-initialisation of a client have changed.
-type stableOptions struct {
-	serverURL     string
-	skipVerifyTLS bool
-	issuerUID     string
-	publicKey     string
-	exponent      int
-	caBundle      string
-	keyChecksum   [sha256.Size]byte
-}
-
-func (c stableOptions) equalTo(c2 stableOptions) bool {
-	return c == c2
-}
-
-func newStableOptions(uid string, options NewClientOptions) stableOptions {
-	// Encoding a big.Int cannot fail
-	publicNBytes, _ := options.PrivateKey.PublicKey.N.GobEncode()
-	checksum := sha256.Sum256(x509.MarshalPKCS1PrivateKey(options.PrivateKey))
-
-	return stableOptions{
-		serverURL:     options.Server,
-		skipVerifyTLS: options.SkipTLSVerify,
-		issuerUID:     uid,
-		publicKey:     string(publicNBytes),
-		exponent:      options.PrivateKey.PublicKey.E,
-		caBundle:      string(options.CABundle),
-		keyChecksum:   checksum,
-	}
-}
-
-// clientWithMeta wraps an ACME client with additional metadata used to
-// identify the options used to instantiate the client.
-type clientWithMeta struct {
-	acmecl.Interface
-
-	stableOptions
+type registryItemWithClient struct {
+	item   RegistryItem
+	client acmecl.Interface
 }
 
 // AddClient will ensure the registry has a stored ACME client for the Issuer
 // object with the given UID, configuration and private key.
-func (r *registry) AddClient(uid string, options NewClientOptions) {
-	// ensure the client is up to date for the current configuration
-	r.ensureClient(uid, options)
-}
-
-// ensureClient will ensure an ACME client with the given parameters is registered.
-// If one is already registered and it was constructed using the same input options,
-// the client will NOT be mutated or replaced, allowing this method to be called
-// even if the client does not need replacing/updating without causing issues for
-// consumers of the registry.
-func (r *registry) ensureClient(uid string, options NewClientOptions) {
+func (r *registry) AddClient(uid string, options RegistryItem) {
 	// acquire a read-write lock even if we hit the fast-path where the client
 	// is already present to avoid having to RLock, RUnlock and Lock again,
 	// which could itself cause a race
 	r.lock.Lock()
 	defer r.lock.Unlock()
 
-	newOpts := newStableOptions(uid, options)
-	// fast-path if there is nothing to do
-	if meta, ok := r.clients[uid]; ok && meta.equalTo(newOpts) {
-		return
-	}
-
-	// create a new client if one is not registered or if the
-	// 'metadata' does not match
-	r.clients[uid] = clientWithMeta{
-		Interface:     r.newClientFunc(options),
-		stableOptions: newOpts,
+	r.clients[uid] = registryItemWithClient{
+		item:   options,
+		client: r.newClientFunc(options.NewClientOptions),
 	}
 }
 
@@ -162,10 +100,12 @@ func (r *registry) GetClient(uid string) (acmecl.Interface, error) {
 	r.lock.RLock()
 	defer r.lock.RUnlock()
 	// fast-path if the client is already registered
-	if c, ok := r.clients[uid]; ok {
-		return c.Interface, nil
+	c, ok := r.clients[uid]
+	if !ok {
+		return nil, ErrNotFound
 	}
-	return nil, ErrNotFound
+
+	return c.client, nil
 }
 
 // RemoveClient will remove a registered client using the UID of the Issuer
@@ -189,30 +129,7 @@ func (r *registry) ListClients() map[string]acmecl.Interface {
 	// strip the client metadata before returning
 	out := make(map[string]acmecl.Interface)
 	for k, v := range r.clients {
-		out[k] = v.Interface
+		out[k] = v.client
 	}
 	return out
-}
-
-// IsKeyCheckSumCached returns true when there is no difference in private key checksum.
-// This can be used to identify if the private key has changed for the existing
-// registered client.
-func (r *registry) IsKeyCheckSumCached(lastPrivateKeyHash string, privateKey *rsa.PrivateKey) bool {
-	r.lock.RLock()
-	defer r.lock.RUnlock()
-
-	if privateKey != nil && lastPrivateKeyHash != "" {
-		privateKeyBytes := x509.MarshalPKCS1PrivateKey(privateKey)
-		checksum := sha256.Sum256(privateKeyBytes)
-		checksumString := base64.StdEncoding.EncodeToString(checksum[:])
-
-		if lastPrivateKeyHash == checksumString {
-			return true
-		}
-
-	}
-
-	// Either there is no entry found in client cache for uid
-	// or private key checksum does not match with cached entry
-	return false
 }

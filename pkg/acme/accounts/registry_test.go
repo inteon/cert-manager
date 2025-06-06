@@ -17,13 +17,11 @@ limitations under the License.
 package accounts
 
 import (
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
 	"net/http"
 	"testing"
 
 	"github.com/cert-manager/cert-manager/pkg/acme/client"
+	cmacme "github.com/cert-manager/cert-manager/pkg/apis/acme/v1"
 	"github.com/cert-manager/cert-manager/pkg/util/pki"
 )
 
@@ -37,8 +35,10 @@ func TestRegistry_AddClient(t *testing.T) {
 	}
 
 	// Register a new client
-	r.AddClient("abc", NewClientOptions{
-		PrivateKey: pk,
+	r.AddClient("abc", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			PrivateKey: pk,
+		},
 	})
 
 	c, err := r.GetClient("abc")
@@ -60,8 +60,10 @@ func TestRegistry_RemoveClient(t *testing.T) {
 	}
 
 	// Register a new client
-	r.AddClient("abc", NewClientOptions{
-		PrivateKey: pk,
+	r.AddClient("abc", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			PrivateKey: pk,
+		},
 	})
 
 	c, err := r.GetClient("abc")
@@ -104,8 +106,10 @@ func TestRegistry_ListClients(t *testing.T) {
 	}
 
 	// Register a new client
-	r.AddClient("abc", NewClientOptions{
-		PrivateKey: pk,
+	r.AddClient("abc", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			PrivateKey: pk,
+		},
 	})
 	l := r.ListClients()
 	if len(l) != 1 {
@@ -113,8 +117,10 @@ func TestRegistry_ListClients(t *testing.T) {
 	}
 
 	// Register a second client
-	r.AddClient("abc2", NewClientOptions{
-		PrivateKey: pk,
+	r.AddClient("abc2", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			PrivateKey: pk,
+		},
 	})
 	l = r.ListClients()
 	if len(l) != 2 {
@@ -123,8 +129,10 @@ func TestRegistry_ListClients(t *testing.T) {
 
 	// Register a third client with the same options as the second, meaning
 	// it should be de-duplicated
-	r.AddClient("abc2", NewClientOptions{
-		PrivateKey: pk,
+	r.AddClient("abc2", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			PrivateKey: pk,
+		},
 	})
 	l = r.ListClients()
 	if len(l) != 2 {
@@ -132,9 +140,11 @@ func TestRegistry_ListClients(t *testing.T) {
 	}
 
 	// Update the second client with a new server URL
-	r.AddClient("abc2", NewClientOptions{
-		Server:     "abc.com",
-		PrivateKey: pk,
+	r.AddClient("abc2", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			Server:     "abc.com",
+			PrivateKey: pk,
+		},
 	})
 	l = r.ListClients()
 	if len(l) != 2 {
@@ -156,8 +166,10 @@ func TestRegistry_AddClient_UpdatesExistingWhenPrivateKeyChanges(t *testing.T) {
 	}
 
 	// Register a new client
-	r.AddClient("abc", NewClientOptions{
-		PrivateKey: pk,
+	r.AddClient("abc", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			PrivateKey: pk,
+		},
 	})
 	l := r.ListClients()
 	if len(l) != 1 {
@@ -165,8 +177,10 @@ func TestRegistry_AddClient_UpdatesExistingWhenPrivateKeyChanges(t *testing.T) {
 	}
 
 	// Update the client with a new private key
-	r.AddClient("abc", NewClientOptions{
-		PrivateKey: pk2,
+	r.AddClient("abc", RegistryItem{
+		NewClientOptions: NewClientOptions{
+			PrivateKey: pk2,
+		},
 	})
 	l = r.ListClients()
 	if len(l) != 1 {
@@ -178,7 +192,7 @@ func TestRegistry_AddClient_UpdatesClientPKChecksum(t *testing.T) {
 	r := NewDefaultRegistry(func(options NewClientOptions) client.Interface {
 		return newClientFromHTTPClient(http.DefaultClient, "cert-manager-test", options)
 	})
-	pk, err := pki.GenerateRSAPrivateKey(2048)
+	pk1, err := pki.GenerateRSAPrivateKey(2048)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -186,26 +200,40 @@ func TestRegistry_AddClient_UpdatesClientPKChecksum(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	pkBytes := x509.MarshalPKCS1PrivateKey(pk)
-	pkChecksum := sha256.Sum256(pkBytes)
-	pkChecksumString := base64.StdEncoding.EncodeToString(pkChecksum[:])
+	ri1 := RegistryItem{
+		NewClientOptions: NewClientOptions{
+			Server:     "https://test.cert-manager.io/server/url",
+			PrivateKey: pk1,
+		},
+		Email: "[email]",
+	}
+	ri2 := RegistryItem{
+		NewClientOptions: NewClientOptions{
+			Server:     "https://test.cert-manager.io/server/url",
+			PrivateKey: pk2,
+		},
+		Email: "[email]",
+	}
 
 	// Register a new client
-	r.AddClient("abc", NewClientOptions{
-		PrivateKey: pk,
-	})
+	r.AddClient("abc", ri1)
 	l := r.ListClients()
 	if len(l) != 1 {
 		t.Errorf("expected ListClients to have 1 item but it has %d", len(l))
 	}
 
-	isCached := r.IsKeyCheckSumCached(pkChecksumString, pk)
+	status1 := &cmacme.ACMEIssuerStatus{
+		URI:                 "https://test.cert-manager.io/server/url",
+		LastRegisteredEmail: "[email]",
+		LastPrivateKeyHash:  ri1.privateKeyHash(),
+	}
+
+	isCached := ri1.IsRegistered(status1)
 	if isCached == false {
 		t.Fatal("checksum failed for same key")
 	}
 
-	isCached = r.IsKeyCheckSumCached(pkChecksumString, pk2)
+	isCached = ri2.IsRegistered(status1)
 	if isCached == true {
 		t.Fatal("checksum reported same for different keys")
 	}
